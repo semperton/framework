@@ -9,7 +9,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Semperton\Framework\Interfaces\ActionResolverInterface;
-use Semperton\Framework\RouteObject;
+use Semperton\Framework\Routing\RouteObject;
 
 final class ActionMiddleware implements MiddlewareInterface
 {

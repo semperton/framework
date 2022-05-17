@@ -44,6 +44,7 @@ final class RouteCollector implements RouteCollectorInterface
 	{
 		$middleware = array_merge($this->groupMiddleware, $middleware);
 
+		/** @psalm-suppress MixedArgumentTypeCoercion */
 		$route = new RouteObject($handler, $middleware);
 
 		$this->routeCollection->map($methods, $path, $route);

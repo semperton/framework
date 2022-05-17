@@ -11,7 +11,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Semperton\Framework\Handler\RequestHandler;
 use Semperton\Framework\Interfaces\MiddlewareResolverInterface;
-use Semperton\Framework\RouteObject;
+use Semperton\Framework\Routing\RouteObject;
 
 final class ConditionalMiddleware implements MiddlewareInterface
 {
@@ -24,10 +24,10 @@ final class ConditionalMiddleware implements MiddlewareInterface
 
 	public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
 	{
-		/** @var RouteObject */
+		/** @var mixed */
 		$routeObject = $request->getAttribute('_route_object');
 
-		if ($routeObject && !!$middleware = $routeObject->getMiddleware()) {
+		if ($routeObject instanceof RouteObject && !!$middleware = $routeObject->getMiddleware()) {
 
 			$middleware = new ArrayIterator($middleware);
 			$delegate = new RequestHandler($middleware, [$this->resolver, 'resolveMiddleware'], $handler);

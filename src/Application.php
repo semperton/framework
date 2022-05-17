@@ -57,6 +57,9 @@ final class Application implements RequestHandlerInterface, RouteCollectorInterf
 		$this->routeCollector = $routeCollector ?? new RouteCollector();
 	}
 
+	/**
+	 * @param string|callable|MiddlewareInterface $middleware
+	 */
 	public function addMiddleware($middleware): void
 	{
 		$this->middleware[] = $middleware;

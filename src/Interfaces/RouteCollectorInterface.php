@@ -12,57 +12,48 @@ interface RouteCollectorInterface
 {
 	public function getRouteCollection(): RouteCollectionInterface;
 	/**
-	 * @param array<int, string|callable|MiddlewareInterface
-	 * @return static
+	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function group(string $path, Closure $callback, array $middleware = []): self;
+	public function group(string $path, Closure $callback, array $middleware = []): RouteCollectorInterface;
 	/**
 	 * @param array<int, string> $methods
 	 * @param mixed $handler
-	 * @param array<int, string|callable|MiddlewareInterface
-	 * @return static
+	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function map(array $methods, string $path, $handler, array $middleware = []): self;
+	public function map(array $methods, string $path, $handler, array $middleware = []): RouteCollectorInterface;
 	/**
 	 * @param mixed $handler
-	 * @param array<int, string|callable|MiddlewareInterface
-	 * @return static
+	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function get(string $path, $handler, array $middleware = []): self;
+	public function get(string $path, $handler, array $middleware = []): RouteCollectorInterface;
 	/**
 	 * @param mixed $handler
-	 * @param array<int, string|callable|MiddlewareInterface
-	 * @return static
+	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function post(string $path, $handler, array $middleware = []): self;
+	public function post(string $path, $handler, array $middleware = []): RouteCollectorInterface;
 	/**
 	 * @param mixed $handler
-	 * @param array<int, string|callable|MiddlewareInterface
-	 * @return static
+	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function put(string $path, $handler, array $middleware = []): self;
+	public function put(string $path, $handler, array $middleware = []): RouteCollectorInterface;
 	/**
 	 * @param mixed $handler
-	 * @param array<int, string|callable|MiddlewareInterface
-	 * @return static
+	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function delete(string $path, $handler, array $middleware = []): self;
+	public function delete(string $path, $handler, array $middleware = []): RouteCollectorInterface;
 	/**
 	 * @param mixed $handler
-	 * @param array<int, string|callable|MiddlewareInterface
-	 * @return static
+	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function patch(string $path, $handler, array $middleware = []): self;
+	public function patch(string $path, $handler, array $middleware = []): RouteCollectorInterface;
 	/**
 	 * @param mixed $handler
-	 * @param array<int, string|callable|MiddlewareInterface
-	 * @return static
+	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function head(string $path, $handler, array $middleware = []): self;
+	public function head(string $path, $handler, array $middleware = []): RouteCollectorInterface;
 	/**
 	 * @param mixed $handler
-	 * @param array<int, string|callable|MiddlewareInterface
-	 * @return static
+	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function options(string $path, $handler, array $middleware = []): self;
+	public function options(string $path, $handler, array $middleware = []): RouteCollectorInterface;
 }

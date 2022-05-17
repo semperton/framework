@@ -33,6 +33,7 @@ final class RequestBodyMiddleware implements MiddlewareInterface
 
 			switch ($header) {
 				case 'application/json':
+					/** @var object */
 					$data = json_decode($body);
 					break;
 				case 'application/x-www-form-urlencoded':
