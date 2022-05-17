@@ -8,25 +8,30 @@
             "Semperton\\Framework\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Semperton\\Framework\\Tests\\": "tests/"
+        }
+    },
     "config": {
         "sort-packages": true
     },
     "scripts": {
         "test": "phpunit tests",
-		"check": "psalm"
+        "check": "psalm --no-cache"
     },
     "require-dev": {
+        "nyholm/psr7": "^1.5",
+        "nyholm/psr7-server": "^1.0",
         "phpunit/phpunit": "^9.5",
         "vimeo/psalm": "^4.7"
     },
     "require": {
         "php": ">= 7.4",
-        "psr/container": "^1.1 || ^2.0",
         "psr/http-factory": "^1.0",
         "psr/http-message": "^1.0",
         "psr/http-server-handler": "^1.0",
         "psr/http-server-middleware": "^1.0",
-        "semperton/porter": "@dev",
-        "semperton/routing": "^1.0"
+        "semperton/routing": "@dev"
     }
 }

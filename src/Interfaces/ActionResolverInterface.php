@@ -6,5 +6,8 @@ namespace Semperton\Framework\Interfaces;
 
 interface ActionResolverInterface
 {
-	public function resolve(string $action): ActionInterface;
+	/**
+	 * @param mixed $action
+	 */
+	public function resolveAction($action): ActionInterface;
 }

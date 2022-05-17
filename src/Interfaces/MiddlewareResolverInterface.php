@@ -8,5 +8,8 @@ use Psr\Http\Server\MiddlewareInterface;
 
 interface MiddlewareResolverInterface
 {
-	public function resolve(string $middleware): MiddlewareInterface;
+	/**
+	 * @param mixed $middleware
+	 */
+	public function resolveMiddleware($middleware): MiddlewareInterface;
 }

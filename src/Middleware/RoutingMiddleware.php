@@ -30,18 +30,22 @@ final class RoutingMiddleware implements MiddlewareInterface
 
 		if ($matchResult->isMatch()) {
 
-			$request = $request->withAttribute('_route_handler', $matchResult->getHandler())
+			$request = $request->withAttribute('_route_object', $matchResult->getHandler())
 				->withAttribute('_route_params', $matchResult->getParams());
-			// GET, HEAD requests must not respond with a 405 status
-		} else if (!empty($matchResult->getMethods()) && !in_array($requestMethod, ['GET', 'HEAD'])) {
 
-			$exception = new HttpMethodNotAllowedException($request);
-			$exception->setAllowedMethods($matchResult->getMethods());
-			throw $exception;
-		} else {
-			throw new HttpNotFoundException($request);
+			return $handler->handle($request);
 		}
 
-		return $handler->handle($request);
+		$methods = $matchResult->getMethods();
+
+		// GET, HEAD requests must not respond with a 405 status
+		if (!empty($methods) && !in_array($requestMethod, ['GET', 'HEAD'])) {
+
+			$exception = new HttpMethodNotAllowedException($request);
+			$exception->setAllowedMethods($methods);
+			throw $exception;
+		}
+
+		throw new HttpNotFoundException($request);
 	}
 }

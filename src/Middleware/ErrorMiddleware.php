@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Semperton\App\Middleware;
+namespace Semperton\Framework\Middleware;
 
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;

@@ -9,6 +9,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Semperton\Framework\Interfaces\ActionResolverInterface;
+use Semperton\Framework\RouteObject;
 
 final class ActionMiddleware implements MiddlewareInterface
 {
@@ -21,13 +22,13 @@ final class ActionMiddleware implements MiddlewareInterface
 
 	public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
 	{
-		/** @var string */
-		$handler = $request->getAttribute('_route_handler');
+		/** @var RouteObject */
+		$routeObject = $request->getAttribute('_route_object');
 
 		/** @var array<string, string> */
 		$args = $request->getAttribute('_route_params');
 
-		$action = $this->resolver->resolve($handler);
+		$action = $this->resolver->resolveAction($routeObject->getHandler());
 
 		return $action->process($request, $args);
 	}

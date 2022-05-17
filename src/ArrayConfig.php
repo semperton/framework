@@ -7,6 +7,9 @@ namespace Semperton\Framework;
 use Semperton\Framework\Interfaces\ConfigInterface;
 use OutOfBoundsException;
 
+use function array_key_exists;
+use function is_array;
+
 final class ArrayConfig implements ConfigInterface
 {
 	/** @var array<array-key, mixed> */
