@@ -30,7 +30,7 @@ final class ConditionalMiddleware implements MiddlewareInterface
 		if ($routeObject instanceof RouteObject && !!$middleware = $routeObject->getMiddleware()) {
 
 			$middleware = new ArrayIterator($middleware);
-			$delegate = new RequestHandler($middleware, [$this->resolver, 'resolveMiddleware'], $handler);
+			$delegate = new RequestHandler($middleware, $this->resolver, $handler);
 
 			return $delegate->handle($request);
 		}

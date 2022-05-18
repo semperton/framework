@@ -65,34 +65,42 @@ final class Application implements RequestHandlerInterface, RouteCollectorInterf
 		return $this;
 	}
 
-	public function addErrorMiddleware(): self
+	public function addErrorMiddleware(): ErrorMiddleware
 	{
 		$errorHandler = new ErrorHandler($this->responseFactory);
 		$errorMiddleware = new ErrorMiddleware($errorHandler);
 
 		$this->middleware[] = $errorMiddleware;
-		return $this;
+
+		return $errorMiddleware;
 	}
 
-	public function addRoutingMiddleware(): self
+	public function addRoutingMiddleware(): RoutingMiddleware
 	{
 		$routeMatcher = new RouteMatcher($this->routeCollector);
 		$routingMiddleware = new RoutingMiddleware($routeMatcher);
 
 		$this->middleware[] = $routingMiddleware;
-		return $this;
+
+		return $routingMiddleware;
 	}
 
-	public function addConditionalMiddleware(): self
+	public function addConditionalMiddleware(): ConditionalMiddleware
 	{
-		$this->middleware[] = new ConditionalMiddleware($this->middlewareResolver);
-		return $this;
+		$conditionalMiddleware = new ConditionalMiddleware($this->middlewareResolver);
+
+		$this->middleware[] = $conditionalMiddleware;
+
+		return $conditionalMiddleware;
 	}
 
-	public function addActionMiddleware(): self
+	public function addActionMiddleware(): ActionMiddleware
 	{
-		$this->middleware[] = new ActionMiddleware($this->actionResolver);
-		return $this;
+		$actionMiddleware = new ActionMiddleware($this->actionResolver);
+
+		$this->middleware[] = $actionMiddleware;
+
+		return $actionMiddleware;
 	}
 
 	public function run(ServerRequestInterface $request): void
@@ -105,7 +113,7 @@ final class Application implements RequestHandlerInterface, RouteCollectorInterf
 	public function handle(ServerRequestInterface $request): ResponseInterface
 	{
 		$middleware = new ArrayIterator($this->middleware);
-		$requestHandler = new RequestHandler($middleware, [$this->middlewareResolver, 'resolveMiddleware']);
+		$requestHandler = new RequestHandler($middleware, $this->middlewareResolver);
 
 		return $requestHandler->handle($request);
 	}

@@ -9,26 +9,20 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use OutOfBoundsException;
-use RuntimeException;
 use Iterator;
-
-use function is_callable;
-use function gettype;
+use Semperton\Framework\Interfaces\MiddlewareResolverInterface;
 
 final class RequestHandler implements RequestHandlerInterface, MiddlewareInterface
 {
-	/** @var Iterator */
-	protected $middleware;
+	protected Iterator $middleware;
 
-	/** @var null|callable */
-	protected $resolver;
+	protected MiddlewareResolverInterface $resolver;
 
-	/** @var null|RequestHandlerInterface */
-	protected $delegate;
+	protected ?RequestHandlerInterface $delegate;
 
 	public function __construct(
 		Iterator $middleware,
-		?callable $resolver = null,
+		MiddlewareResolverInterface $resolver,
 		?RequestHandlerInterface $delegate = null
 	) {
 		$this->middleware = $middleware;
@@ -47,35 +41,17 @@ final class RequestHandler implements RequestHandlerInterface, MiddlewareInterfa
 			throw new OutOfBoundsException('End of middleware stack, no response was returned');
 		}
 
-		/** @var null|mixed */
+		/** @var mixed */
 		$middleware = $this->middleware->current();
 
 		$this->middleware->next();
 
-		if ($this->resolver) {
-
-			/** @var mixed */
-			$middleware = ($this->resolver)($middleware);
+		if(!($middleware instanceof MiddlewareInterface)){
+			
+			$middleware = $this->resolver->resolveMiddleware($middleware);
 		}
 
-		if ($middleware instanceof MiddlewareInterface) {
-
-			return $middleware->process($request, $this);
-		}
-
-		if ($middleware instanceof RequestHandlerInterface) {
-
-			return $middleware->handle($request);
-		}
-
-		if (is_callable($middleware)) {
-
-			/** @var ResponseInterface */
-			return $middleware($request, $this);
-		}
-
-		$type = gettype($middleware);
-		throw new RuntimeException("Unable to resolve middleware, < $type > is not a valid Middleware");
+		return $middleware->process($request, $this);
 	}
 
 	public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

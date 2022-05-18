@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Semperton\Framework;
 
 use Psr\Container\ContainerInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 use RuntimeException;
 use Semperton\Framework\Interfaces\ActionInterface;
 use Semperton\Framework\Interfaces\ActionResolverInterface;
@@ -22,8 +25,21 @@ final class CommonResolver implements ActionResolverInterface, MiddlewareResolve
 
 	public function resolveAction($action): ActionInterface
 	{
-		if ($action instanceof ActionInterface) {
-			return $action;
+		if (is_callable($action)) {
+
+			return new class($action) implements ActionInterface
+			{
+				protected $action;
+
+				public function __construct(callable $action)
+				{
+					$this->action = $action;
+				}
+				public function process(ServerRequestInterface $request, array $args): ResponseInterface
+				{
+					return ($this->action)($request, $args);
+				}
+			};
 		}
 
 		if (is_string($action)) {
@@ -43,8 +59,21 @@ final class CommonResolver implements ActionResolverInterface, MiddlewareResolve
 
 	public function resolveMiddleware($middleware): MiddlewareInterface
 	{
-		if ($middleware instanceof MiddlewareInterface) {
-			return $middleware;
+		if (is_callable($middleware)) {
+
+			return new class($middleware) implements MiddlewareInterface
+			{
+				protected $middleware;
+
+				public function __construct(callable $middleware)
+				{
+					$this->middleware = $middleware;
+				}
+				public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+				{
+					return ($this->middleware)($request, $handler);
+				}
+			};
 		}
 
 		if (is_string($middleware)) {

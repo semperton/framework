@@ -8,6 +8,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Semperton\Framework\Interfaces\ActionInterface;
 use Semperton\Framework\Interfaces\ActionResolverInterface;
 use Semperton\Framework\Routing\RouteObject;
 
@@ -28,7 +29,12 @@ final class ActionMiddleware implements MiddlewareInterface
 		/** @var array<string, string> */
 		$args = $request->getAttribute('_route_params');
 
-		$action = $this->resolver->resolveAction($routeObject->getHandler());
+		$action = $routeObject->getHandler();
+
+		if(!($action instanceof ActionInterface)){
+			
+			$action = $this->resolver->resolveAction($action);
+		}
 
 		return $action->process($request, $args);
 	}

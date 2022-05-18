@@ -7,7 +7,7 @@ namespace Semperton\Framework\Interfaces;
 interface ActionResolverInterface
 {
 	/**
-	 * @param mixed $action
+	 * @param string|callable $action
 	 */
 	public function resolveAction($action): ActionInterface;
 }
