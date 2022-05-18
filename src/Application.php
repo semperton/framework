@@ -48,9 +48,10 @@ final class Application implements RequestHandlerInterface, RouteCollectorInterf
 		$this->responseFactory = $responseFactory;
 		$this->responseEmitter = $responseEmitter ?? new ResponseEmitter();
 
-		$this->middlewareResolver = $middlewareResolver ?? new CommonResolver();
-
 		$this->actionResolver = $actionResolver ?? new CommonResolver();
+		$this->middlewareResolver = $middlewareResolver ??
+			($this->actionResolver instanceof CommonResolver ? $this->actionResolver : new CommonResolver());
+
 
 		$this->routeCollector = new RouteCollector();
 	}
