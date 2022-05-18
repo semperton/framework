@@ -6,11 +6,9 @@ namespace Semperton\Framework\Interfaces;
 
 use Closure;
 use Psr\Http\Server\MiddlewareInterface;
-use Semperton\Routing\RouteCollectionInterface;
 
 interface RouteCollectorInterface
 {
-	public function getRouteCollection(): RouteCollectionInterface;
 	/**
 	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */

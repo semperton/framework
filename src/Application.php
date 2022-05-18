@@ -22,7 +22,6 @@ use Semperton\Framework\Middleware\ConditionalMiddleware;
 use Semperton\Framework\Middleware\ErrorMiddleware;
 use Semperton\Framework\Middleware\RoutingMiddleware;
 use Semperton\Framework\Routing\RouteCollector;
-use Semperton\Routing\RouteCollectionInterface;
 use Semperton\Routing\RouteMatcher;
 
 final class Application implements RequestHandlerInterface, RouteCollectorInterface
@@ -38,11 +37,10 @@ final class Application implements RequestHandlerInterface, RouteCollectorInterf
 
 	protected ResponseEmitterInterface $responseEmitter;
 
-	protected RouteCollectorInterface $routeCollector;
+	protected RouteCollector $routeCollector;
 
 	public function __construct(
 		ResponseFactoryInterface $responseFactory,
-		?RouteCollectorInterface $routeCollector = null,
 		?MiddlewareResolverInterface $middlewareResolver = null,
 		?ActionResolverInterface $actionResolver = null,
 		?ResponseEmitterInterface $responseEmitter = null
@@ -54,41 +52,46 @@ final class Application implements RequestHandlerInterface, RouteCollectorInterf
 
 		$this->actionResolver = $actionResolver ?? new CommonResolver();
 
-		$this->routeCollector = $routeCollector ?? new RouteCollector();
+		$this->routeCollector = new RouteCollector();
 	}
 
 	/**
 	 * @param string|callable|MiddlewareInterface $middleware
 	 */
-	public function addMiddleware($middleware): void
+	public function addMiddleware($middleware): self
 	{
 		$this->middleware[] = $middleware;
+		return $this;
 	}
 
-	public function addErrorMiddleware(): void
+	public function addErrorMiddleware(): self
 	{
 		$errorHandler = new ErrorHandler($this->responseFactory);
 		$errorMiddleware = new ErrorMiddleware($errorHandler);
 
 		$this->middleware[] = $errorMiddleware;
+		return $this;
 	}
 
-	public function addRoutingMiddleware(): void
+	public function addRoutingMiddleware(): self
 	{
-		$routeMatcher = new RouteMatcher($this->getRouteCollection());
+		$routeMatcher = new RouteMatcher($this->routeCollector);
 		$routingMiddleware = new RoutingMiddleware($routeMatcher);
 
 		$this->middleware[] = $routingMiddleware;
+		return $this;
 	}
 
-	public function addConditionalMiddleware(): void
+	public function addConditionalMiddleware(): self
 	{
 		$this->middleware[] = new ConditionalMiddleware($this->middlewareResolver);
+		return $this;
 	}
 
-	public function addActionMiddleware(): void
+	public function addActionMiddleware(): self
 	{
 		$this->middleware[] = new ActionMiddleware($this->actionResolver);
+		return $this;
 	}
 
 	public function run(ServerRequestInterface $request): void
@@ -104,11 +107,6 @@ final class Application implements RequestHandlerInterface, RouteCollectorInterf
 		$requestHandler = new RequestHandler($middleware, [$this->middlewareResolver, 'resolveMiddleware']);
 
 		return $requestHandler->handle($request);
-	}
-
-	public function getRouteCollection(): RouteCollectionInterface
-	{
-		return $this->routeCollector->getRouteCollection();
 	}
 
 	public function group(string $path, Closure $callback, array $middleware = []): RouteCollectorInterface

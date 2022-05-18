@@ -8,8 +8,9 @@ use Closure;
 use Semperton\Framework\Interfaces\RouteCollectorInterface;
 use Semperton\Routing\RouteCollection;
 use Semperton\Routing\RouteCollectionInterface;
+use Semperton\Routing\RouteNode;
 
-final class RouteCollector implements RouteCollectorInterface
+final class RouteCollector implements RouteCollectorInterface, RouteCollectionInterface
 {
 	protected RouteCollection $routeCollection;
 
@@ -20,9 +21,9 @@ final class RouteCollector implements RouteCollectorInterface
 		$this->routeCollection = $routeCollection ?? new RouteCollection();
 	}
 
-	public function getRouteCollection(): RouteCollectionInterface
+	public function getRouteTree(): RouteNode
 	{
-		return $this->routeCollection;
+		return $this->routeCollection->getRouteTree();
 	}
 
 	public function group(string $path, Closure $callback, array $middleware = []): self
