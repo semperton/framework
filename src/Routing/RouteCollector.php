@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace Semperton\Framework\Routing;
 
 use Closure;
+use Psr\Http\Server\MiddlewareInterface;
 use Semperton\Framework\Interfaces\RouteCollectorInterface;
 use Semperton\Routing\RouteCollection;
 use Semperton\Routing\RouteCollectionInterface;
 use Semperton\Routing\RouteNode;
 
+use function array_merge;
+
 final class RouteCollector implements RouteCollectorInterface, RouteCollectionInterface
 {
 	protected RouteCollection $routeCollection;
 
+	/** @var array<int, string|callable|MiddlewareInterface> */
 	protected array $groupMiddleware = [];
 
 	public function __construct(?RouteCollection $routeCollection = null)
@@ -41,50 +45,49 @@ final class RouteCollector implements RouteCollectorInterface, RouteCollectionIn
 		return $this;
 	}
 
-	public function map(array $methods, string $path, $handler, array $middleware = []): self
+	public function map(array $methods, string $path, $action, array $middleware = []): self
 	{
 		$middleware = array_merge($this->groupMiddleware, $middleware);
 
-		/** @psalm-suppress MixedArgumentTypeCoercion */
-		$route = new RouteObject($handler, $middleware);
+		$route = new RouteObject($action, $middleware);
 
 		$this->routeCollection->map($methods, $path, $route);
 
 		return $this;
 	}
 
-	public function get(string $path, $handler, array $middleware = []): self
+	public function get(string $path, $action, array $middleware = []): self
 	{
-		return $this->map(['GET'], $path, $handler, $middleware);
+		return $this->map(['GET'], $path, $action, $middleware);
 	}
 
-	public function post(string $path, $handler, array $middleware = []): self
+	public function post(string $path, $action, array $middleware = []): self
 	{
-		return $this->map(['POST'], $path, $handler, $middleware);
+		return $this->map(['POST'], $path, $action, $middleware);
 	}
 
-	public function put(string $path, $handler, array $middleware = []): self
+	public function put(string $path, $action, array $middleware = []): self
 	{
-		return $this->map(['PUT'], $path, $handler, $middleware);
+		return $this->map(['PUT'], $path, $action, $middleware);
 	}
 
-	public function delete(string $path, $handler, array $middleware = []): self
+	public function delete(string $path, $action, array $middleware = []): self
 	{
-		return $this->map(['DELETE'], $path, $handler, $middleware);
+		return $this->map(['DELETE'], $path, $action, $middleware);
 	}
 
-	public function patch(string $path, $handler, array $middleware = []): self
+	public function patch(string $path, $action, array $middleware = []): self
 	{
-		return $this->map(['PATCH'], $path, $handler, $middleware);
+		return $this->map(['PATCH'], $path, $action, $middleware);
 	}
 
-	public function head(string $path, $handler, array $middleware = []): self
+	public function head(string $path, $action, array $middleware = []): self
 	{
-		return $this->map(['HEAD'], $path, $handler, $middleware);
+		return $this->map(['HEAD'], $path, $action, $middleware);
 	}
 
-	public function options(string $path, $handler, array $middleware = []): self
+	public function options(string $path, $action, array $middleware = []): self
 	{
-		return $this->map(['OPTIONS'], $path, $handler, $middleware);
+		return $this->map(['OPTIONS'], $path, $action, $middleware);
 	}
 }

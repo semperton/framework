@@ -29,10 +29,10 @@ final class ActionMiddleware implements MiddlewareInterface
 		/** @var array<string, string> */
 		$args = $request->getAttribute('_route_params');
 
-		$action = $routeObject->getHandler();
+		$action = $routeObject->getAction();
 
-		if(!($action instanceof ActionInterface)){
-			
+		if (!($action instanceof ActionInterface)) {
+
 			$action = $this->resolver->resolveAction($action);
 		}
 

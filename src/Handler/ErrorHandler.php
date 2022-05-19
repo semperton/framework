@@ -12,6 +12,10 @@ use Semperton\Framework\Exception\HttpMethodNotAllowedException;
 use Semperton\Framework\Interfaces\ErrorHandlerInterface;
 use Throwable;
 
+use function implode;
+use function json_encode;
+use function get_class;
+
 final class ErrorHandler implements ErrorHandlerInterface
 {
 	protected ResponseFactoryInterface $responseFactory;

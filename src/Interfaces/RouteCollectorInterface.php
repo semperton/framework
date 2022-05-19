@@ -15,43 +15,43 @@ interface RouteCollectorInterface
 	public function group(string $path, Closure $callback, array $middleware = []): RouteCollectorInterface;
 	/**
 	 * @param array<int, string> $methods
-	 * @param mixed $handler
+	 * @param string|callable|ActionInterface $action
 	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function map(array $methods, string $path, $handler, array $middleware = []): RouteCollectorInterface;
+	public function map(array $methods, string $path, $action, array $middleware = []): RouteCollectorInterface;
 	/**
-	 * @param mixed $handler
+	 * @param string|callable|ActionInterface $action
 	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function get(string $path, $handler, array $middleware = []): RouteCollectorInterface;
+	public function get(string $path, $action, array $middleware = []): RouteCollectorInterface;
 	/**
-	 * @param mixed $handler
+	 * @param string|callable|ActionInterface $action
 	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function post(string $path, $handler, array $middleware = []): RouteCollectorInterface;
+	public function post(string $path, $action, array $middleware = []): RouteCollectorInterface;
 	/**
-	 * @param mixed $handler
+	 * @param string|callable|ActionInterface $action
 	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function put(string $path, $handler, array $middleware = []): RouteCollectorInterface;
+	public function put(string $path, $action, array $middleware = []): RouteCollectorInterface;
 	/**
-	 * @param mixed $handler
+	 * @param string|callable|ActionInterface $action
 	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function delete(string $path, $handler, array $middleware = []): RouteCollectorInterface;
+	public function delete(string $path, $action, array $middleware = []): RouteCollectorInterface;
 	/**
-	 * @param mixed $handler
+	 * @param string|callable|ActionInterface $action
 	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function patch(string $path, $handler, array $middleware = []): RouteCollectorInterface;
+	public function patch(string $path, $action, array $middleware = []): RouteCollectorInterface;
 	/**
-	 * @param mixed $handler
+	 * @param string|callable|ActionInterface $action
 	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function head(string $path, $handler, array $middleware = []): RouteCollectorInterface;
+	public function head(string $path, $action, array $middleware = []): RouteCollectorInterface;
 	/**
-	 * @param mixed $handler
+	 * @param string|callable|ActionInterface $action
 	 * @param array<int, string|callable|MiddlewareInterface> $middleware
 	 */
-	public function options(string $path, $handler, array $middleware = []): RouteCollectorInterface;
+	public function options(string $path, $action, array $middleware = []): RouteCollectorInterface;
 }

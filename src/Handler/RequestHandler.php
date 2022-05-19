@@ -8,11 +8,11 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Semperton\Framework\Interfaces\MiddlewareResolverInterface;
 use OutOfBoundsException;
 use Iterator;
-use Semperton\Framework\Interfaces\MiddlewareResolverInterface;
 
-final class RequestHandler implements RequestHandlerInterface, MiddlewareInterface
+final class RequestHandler implements RequestHandlerInterface
 {
 	protected Iterator $middleware;
 
@@ -41,21 +41,16 @@ final class RequestHandler implements RequestHandlerInterface, MiddlewareInterfa
 			throw new OutOfBoundsException('End of middleware stack, no response was returned');
 		}
 
-		/** @var mixed */
+		/** @var string|callable|MiddlewareInterface */
 		$middleware = $this->middleware->current();
 
 		$this->middleware->next();
 
-		if(!($middleware instanceof MiddlewareInterface)){
-			
+		if (!($middleware instanceof MiddlewareInterface)) {
+
 			$middleware = $this->resolver->resolveMiddleware($middleware);
 		}
 
 		return $middleware->process($request, $this);
-	}
-
-	public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
-	{
-		return (new self($this->middleware, $this->resolver, $handler))->handle($request);
 	}
 }
