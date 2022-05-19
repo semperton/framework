@@ -9,16 +9,16 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Semperton\Framework\Interfaces\ActionInterface;
-use Semperton\Framework\Interfaces\ActionResolverInterface;
+use Semperton\Framework\Interfaces\CommonResolverInterface;
 use Semperton\Framework\Routing\RouteObject;
 
 final class ActionMiddleware implements MiddlewareInterface
 {
-	protected ActionResolverInterface $resolver;
+	protected CommonResolverInterface $commonResolver;
 
-	public function __construct(ActionResolverInterface $resolver)
+	public function __construct(CommonResolverInterface $commonResolver)
 	{
-		$this->resolver = $resolver;
+		$this->commonResolver = $commonResolver;
 	}
 
 	public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -33,7 +33,7 @@ final class ActionMiddleware implements MiddlewareInterface
 
 		if (!($action instanceof ActionInterface)) {
 
-			$action = $this->resolver->resolveAction($action);
+			$action = $this->commonResolver->resolveAction($action);
 		}
 
 		return $action->process($request, $args);

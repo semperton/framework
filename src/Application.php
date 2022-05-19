@@ -4,17 +4,13 @@ declare(strict_types=1);
 
 namespace Semperton\Framework;
 
-use ArrayIterator;
 use Closure;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Server\MiddlewareInterface;
-use Psr\Http\Server\RequestHandlerInterface;
 use Semperton\Framework\Handler\ErrorHandler;
-use Semperton\Framework\Handler\RequestHandler;
-use Semperton\Framework\Interfaces\ActionResolverInterface;
-use Semperton\Framework\Interfaces\MiddlewareResolverInterface;
+use Semperton\Framework\Interfaces\CommonResolverInterface;
+use Semperton\Framework\Interfaces\MiddlewareDispatcherInterface;
 use Semperton\Framework\Interfaces\ResponseEmitterInterface;
 use Semperton\Framework\Interfaces\RouteCollectorInterface;
 use Semperton\Framework\Middleware\ActionMiddleware;
@@ -24,16 +20,13 @@ use Semperton\Framework\Middleware\RoutingMiddleware;
 use Semperton\Framework\Routing\RouteCollector;
 use Semperton\Routing\RouteMatcher;
 
-final class Application implements RequestHandlerInterface, RouteCollectorInterface
+final class Application implements MiddlewareDispatcherInterface, RouteCollectorInterface
 {
-	/** @var array<int, string|callable|MiddlewareInterface> */
-	protected array $middleware = [];
-
 	protected ResponseFactoryInterface $responseFactory;
 
-	protected MiddlewareResolverInterface $middlewareResolver;
+	protected MiddlewareDispatcherInterface $middlewareDispatcher;
 
-	protected ActionResolverInterface $actionResolver;
+	protected CommonResolverInterface $commonResolver;
 
 	protected ResponseEmitterInterface $responseEmitter;
 
@@ -41,28 +34,20 @@ final class Application implements RequestHandlerInterface, RouteCollectorInterf
 
 	public function __construct(
 		ResponseFactoryInterface $responseFactory,
-		?MiddlewareResolverInterface $middlewareResolver = null,
-		?ActionResolverInterface $actionResolver = null,
+		?MiddlewareDispatcherInterface $middlewareDispatcher = null,
+		?CommonResolverInterface $commonResolver = null,
 		?ResponseEmitterInterface $responseEmitter = null
 	) {
 		$this->responseFactory = $responseFactory;
+		$this->commonResolver = $commonResolver ?? new CommonResolver();
+		$this->middlewareDispatcher = $middlewareDispatcher ?? new MiddlewareDispatcher($this->commonResolver);
 		$this->responseEmitter = $responseEmitter ?? new ResponseEmitter();
-
-		$this->actionResolver = $actionResolver ?? new CommonResolver();
-		$this->middlewareResolver = $middlewareResolver ??
-			($this->actionResolver instanceof CommonResolver ? $this->actionResolver : new CommonResolver());
-
-
 		$this->routeCollector = new RouteCollector();
 	}
 
-	/**
-	 * @param string|callable|MiddlewareInterface $middleware
-	 */
-	public function addMiddleware($middleware): self
+	public function addMiddleware(...$middleware): MiddlewareDispatcherInterface
 	{
-		$this->middleware[] = $middleware;
-		return $this;
+		return $this->middlewareDispatcher->addMiddleware(...$middleware);
 	}
 
 	public function addErrorMiddleware(): ErrorMiddleware
@@ -70,7 +55,7 @@ final class Application implements RequestHandlerInterface, RouteCollectorInterf
 		$errorHandler = new ErrorHandler($this->responseFactory);
 		$errorMiddleware = new ErrorMiddleware($errorHandler);
 
-		$this->middleware[] = $errorMiddleware;
+		$this->addMiddleware($errorMiddleware);
 
 		return $errorMiddleware;
 	}
@@ -80,25 +65,25 @@ final class Application implements RequestHandlerInterface, RouteCollectorInterf
 		$routeMatcher = new RouteMatcher($this->routeCollector);
 		$routingMiddleware = new RoutingMiddleware($routeMatcher);
 
-		$this->middleware[] = $routingMiddleware;
+		$this->addMiddleware($routingMiddleware);
 
 		return $routingMiddleware;
 	}
 
 	public function addConditionalMiddleware(): ConditionalMiddleware
 	{
-		$conditionalMiddleware = new ConditionalMiddleware($this->middlewareResolver);
+		$conditionalMiddleware = new ConditionalMiddleware($this->commonResolver);
 
-		$this->middleware[] = $conditionalMiddleware;
+		$this->addMiddleware($conditionalMiddleware);
 
 		return $conditionalMiddleware;
 	}
 
 	public function addActionMiddleware(): ActionMiddleware
 	{
-		$actionMiddleware = new ActionMiddleware($this->actionResolver);
+		$actionMiddleware = new ActionMiddleware($this->commonResolver);
 
-		$this->middleware[] = $actionMiddleware;
+		$this->addMiddleware($actionMiddleware);
 
 		return $actionMiddleware;
 	}
@@ -112,10 +97,7 @@ final class Application implements RequestHandlerInterface, RouteCollectorInterf
 
 	public function handle(ServerRequestInterface $request): ResponseInterface
 	{
-		$middleware = new ArrayIterator($this->middleware);
-		$requestHandler = new RequestHandler($middleware, $this->middlewareResolver);
-
-		$response = $requestHandler->handle($request);
+		$response = $this->middlewareDispatcher->handle($request);
 
 		if ('HEAD' === strtoupper($request->getMethod())) {
 

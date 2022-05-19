@@ -11,13 +11,12 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use RuntimeException;
 use Semperton\Framework\Interfaces\ActionInterface;
-use Semperton\Framework\Interfaces\ActionResolverInterface;
-use Semperton\Framework\Interfaces\MiddlewareResolverInterface;
+use Semperton\Framework\Interfaces\CommonResolverInterface;
 
 use function is_callable;
 use function gettype;
 
-final class CommonResolver implements ActionResolverInterface, MiddlewareResolverInterface
+final class CommonResolver implements CommonResolverInterface
 {
 	protected ?ContainerInterface $container;
 

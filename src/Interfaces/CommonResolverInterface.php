@@ -6,8 +6,13 @@ namespace Semperton\Framework\Interfaces;
 
 use Psr\Http\Server\MiddlewareInterface;
 
-interface MiddlewareResolverInterface
+interface CommonResolverInterface
 {
+	/**
+	 * @param string|callable $action
+	 */
+	public function resolveAction($action): ActionInterface;
+
 	/**
 	 * @param string|callable $middleware
 	 */
