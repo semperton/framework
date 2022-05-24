@@ -6,11 +6,11 @@ namespace Semperton\Framework\Middleware;
 
 use Semperton\Framework\Exception\HttpMethodNotAllowedException;
 use Semperton\Framework\Exception\HttpNotFoundException;
+use Semperton\Framework\Interfaces\RouteMatcherInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Semperton\Routing\RouteMatcherInterface;
 
 final class RoutingMiddleware implements MiddlewareInterface
 {
@@ -23,10 +23,7 @@ final class RoutingMiddleware implements MiddlewareInterface
 
 	public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
 	{
-		$requestMethod = $request->getMethod();
-		$requestPath = rawurldecode($request->getUri()->getPath());
-
-		$matchResult = $this->routeMatcher->match($requestMethod, $requestPath);
+		$matchResult = $this->routeMatcher->matchRequest($request);
 
 		if ($matchResult->isMatch()) {
 
@@ -39,7 +36,7 @@ final class RoutingMiddleware implements MiddlewareInterface
 		$methods = $matchResult->getMethods();
 
 		// GET, HEAD requests must not respond with a 405 status
-		if (!empty($methods) && !in_array($requestMethod, ['GET', 'HEAD'])) {
+		if (!empty($methods) && !in_array($request->getMethod(), ['GET', 'HEAD'])) {
 
 			$exception = new HttpMethodNotAllowedException($request);
 			$exception->setAllowedMethods($methods);

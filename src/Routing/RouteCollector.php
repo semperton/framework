@@ -7,9 +7,9 @@ namespace Semperton\Framework\Routing;
 use Closure;
 use Psr\Http\Server\MiddlewareInterface;
 use Semperton\Framework\Interfaces\RouteCollectorInterface;
-use Semperton\Routing\RouteCollection;
-use Semperton\Routing\RouteCollectionInterface;
-use Semperton\Routing\RouteNode;
+use Semperton\Routing\Collection\RouteCollection;
+use Semperton\Routing\Collection\RouteCollectionInterface;
+use Semperton\Routing\RouteData;
 
 use function array_merge;
 
@@ -25,9 +25,9 @@ final class RouteCollector implements RouteCollectorInterface, RouteCollectionIn
 		$this->routeCollection = $routeCollection ?? new RouteCollection();
 	}
 
-	public function getRouteTree(): RouteNode
+	public function getRouteData(): RouteData
 	{
-		return $this->routeCollection->getRouteTree();
+		return $this->routeCollection->getRouteData();
 	}
 
 	public function group(string $path, Closure $callback, array $middleware = []): self
@@ -79,11 +79,6 @@ final class RouteCollector implements RouteCollectorInterface, RouteCollectionIn
 	public function patch(string $path, $action, array $middleware = []): self
 	{
 		return $this->map(['PATCH'], $path, $action, $middleware);
-	}
-
-	public function head(string $path, $action, array $middleware = []): self
-	{
-		return $this->map(['HEAD'], $path, $action, $middleware);
 	}
 
 	public function options(string $path, $action, array $middleware = []): self

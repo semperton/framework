@@ -31,7 +31,7 @@ final class ApplicationTest extends TestCase
 		$action = new TestAction($factory);
 
 		$app->group('/home', function (RouteCollectorInterface $index) use ($action) {
-			$index->get('/', $action, [
+			$index->get('', $action, [
 				new TestMiddleware()
 			]);
 		});

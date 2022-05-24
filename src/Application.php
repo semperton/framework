@@ -18,7 +18,7 @@ use Semperton\Framework\Middleware\ConditionalMiddleware;
 use Semperton\Framework\Middleware\ErrorMiddleware;
 use Semperton\Framework\Middleware\RoutingMiddleware;
 use Semperton\Framework\Routing\RouteCollector;
-use Semperton\Routing\RouteMatcher;
+use Semperton\Framework\Routing\RouteMatcher;
 
 final class Application implements MiddlewareDispatcherInterface, RouteCollectorInterface
 {
@@ -99,7 +99,7 @@ final class Application implements MiddlewareDispatcherInterface, RouteCollector
 	{
 		$response = $this->middlewareDispatcher->handle($request);
 
-		if ('HEAD' === strtoupper($request->getMethod())) {
+		if ('HEAD' === $request->getMethod()) {
 
 			$emptyBody = $this->responseFactory->createResponse()->getBody();
 			$response = $response->withBody($emptyBody);
@@ -141,11 +141,6 @@ final class Application implements MiddlewareDispatcherInterface, RouteCollector
 	public function patch(string $path, $action, array $middleware = []): RouteCollectorInterface
 	{
 		return $this->routeCollector->patch($path, $action, $middleware);
-	}
-
-	public function head(string $path, $action, array $middleware = []): RouteCollectorInterface
-	{
-		return $this->routeCollector->head($path, $action, $middleware);
 	}
 
 	public function options(string $path, $action, array $middleware = []): RouteCollectorInterface
