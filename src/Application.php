@@ -39,7 +39,7 @@ final class Application implements MiddlewareDispatcherInterface, RouteCollector
 		?ResponseEmitterInterface $responseEmitter = null
 	) {
 		$this->responseFactory = $responseFactory;
-		$this->commonResolver = $commonResolver ?? new CommonResolver();
+		$this->commonResolver = $commonResolver ?? new CommonResolver($responseFactory);
 		$this->middlewareDispatcher = $middlewareDispatcher ?? new MiddlewareDispatcher($this->commonResolver);
 		$this->responseEmitter = $responseEmitter ?? new ResponseEmitter();
 		$this->routeCollector = new RouteCollector();

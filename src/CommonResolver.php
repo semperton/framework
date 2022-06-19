@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Semperton\Framework;
 
 use Psr\Container\ContainerInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -18,10 +19,15 @@ use function gettype;
 
 final class CommonResolver implements CommonResolverInterface
 {
+	protected ResponseFactoryInterface $responseFactory;
+
 	protected ?ContainerInterface $container;
 
-	public function __construct(?ContainerInterface $container = null)
-	{
+	public function __construct(
+		ResponseFactoryInterface $responseFactory,
+		?ContainerInterface $container = null
+	) {
+		$this->responseFactory = $responseFactory;
 		$this->container = $container;
 	}
 
@@ -39,7 +45,7 @@ final class CommonResolver implements CommonResolverInterface
 		}
 
 		$type = gettype($action);
-		throw new RuntimeException("Unable to resolve Action of type < $type >");
+		throw new RuntimeException("Type < $type > is not a valid Action");
 	}
 
 	public function resolveMiddleware($middleware): MiddlewareInterface
@@ -56,11 +62,11 @@ final class CommonResolver implements CommonResolverInterface
 		}
 
 		$type = gettype($middleware);
-		throw new RuntimeException("Unable to resolve Middleware of type < $type >");
+		throw new RuntimeException("Type < $type > is not a valid Middleware");
 	}
 
 	/**
-	 * @return mixed
+	 * @return null|mixed
 	 */
 	protected function containerGet(string $id)
 	{
@@ -74,46 +80,64 @@ final class CommonResolver implements CommonResolverInterface
 
 	protected function buildMiddleware(callable $middleware): MiddlewareInterface
 	{
-		return new class($middleware) implements MiddlewareInterface
+		$responseFactory = $this->responseFactory;
+
+		return new class($responseFactory, $middleware) implements MiddlewareInterface
 		{
+			protected ResponseFactoryInterface $responseFactory;
+
+			/** @var callable */
 			protected $middleware;
 
-			public function __construct(callable $middleware)
+			public function __construct(ResponseFactoryInterface $responseFactory, callable $middleware)
 			{
+				$this->responseFactory = $responseFactory;
 				$this->middleware = $middleware;
 			}
+
 			public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
 			{
-				$response = ($this->middleware)($request, $handler);
+				$response = $this->responseFactory->createResponse();
 
-				if (!($response instanceof ResponseInterface)) {
+				$middlewareResponse = ($this->middleware)($request, $response, $handler);
+
+				if (!($middlewareResponse instanceof ResponseInterface)) {
 					throw new RuntimeException('Middleware callable did not return a valid response');
 				}
 
-				return $response;
+				return $middlewareResponse;
 			}
 		};
 	}
 
 	protected function buildAction(callable $action): ActionInterface
 	{
-		return new class($action) implements ActionInterface
+		$responseFactory = $this->responseFactory;
+
+		return new class($responseFactory, $action) implements ActionInterface
 		{
+			protected ResponseFactoryInterface $responseFactory;
+
+			/** @var callable */
 			protected $action;
 
-			public function __construct(callable $action)
+			public function __construct(ResponseFactoryInterface $responseFactory, callable $action)
 			{
+				$this->responseFactory = $responseFactory;
 				$this->action = $action;
 			}
+
 			public function process(ServerRequestInterface $request, array $args): ResponseInterface
 			{
-				$response = ($this->action)($request, $args);
+				$response = $this->responseFactory->createResponse();
 
-				if (!($response instanceof ResponseInterface)) {
+				$actionResponse = ($this->action)($request, $response, $args);
+
+				if (!($actionResponse instanceof ResponseInterface)) {
 					throw new RuntimeException('Action callable did not return a valid response');
 				}
 
-				return $response;
+				return $actionResponse;
 			}
 		};
 	}

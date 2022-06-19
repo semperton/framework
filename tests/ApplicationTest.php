@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Semperton\Framework\Application;
 use Semperton\Framework\Interfaces\RouteCollectorInterface;
@@ -30,8 +31,12 @@ final class ApplicationTest extends TestCase
 
 		$action = new TestAction($factory);
 
-		$app->group('/home', function (RouteCollectorInterface $index) use ($action) {
-			$index->get('', $action, [
+		$app->group('/', function (RouteCollectorInterface $index) use ($action) {
+			$index->get('', function (ServerRequestInterface $request, ResponseInterface $response) {
+				$response->getBody()->write('index');
+				return $response;
+			});
+			$index->get('home', $action, [
 				new TestMiddleware()
 			]);
 		});
@@ -42,5 +47,14 @@ final class ApplicationTest extends TestCase
 		$response = $app->handle($request);
 
 		$this->assertEquals('Hello World', (string)$response->getBody());
+
+		// re-add middleware for testing
+		$app->addRoutingMiddleware();
+		$app->addActionMiddleware();
+
+		$request = $this->createRequest('GET', '/');
+		$response = $app->handle($request);
+
+		$this->assertEquals('index', (string)$response->getBody());
 	}
 }
