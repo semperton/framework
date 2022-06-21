@@ -8,17 +8,16 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Semperton\Framework\Interfaces\CommonResolverInterface;
-use Semperton\Framework\MiddlewareDispatcher;
+use Semperton\Framework\Interfaces\MiddlewareDispatcherInterface;
 use Semperton\Framework\Routing\RouteObject;
 
 final class ConditionalMiddleware implements MiddlewareInterface
 {
-	protected CommonResolverInterface $commonResolver;
+	protected MiddlewareDispatcherInterface $middlewareDispatcher;
 
-	public function __construct(CommonResolverInterface $commonResolver)
+	public function __construct(MiddlewareDispatcherInterface $middlewareDispatcher)
 	{
-		$this->commonResolver = $commonResolver;
+		$this->middlewareDispatcher = $middlewareDispatcher;
 	}
 
 	public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -28,10 +27,9 @@ final class ConditionalMiddleware implements MiddlewareInterface
 
 		if ($routeObject instanceof RouteObject && !!$middleware = $routeObject->getMiddleware()) {
 
-			$dispatcher = new MiddlewareDispatcher($this->commonResolver, $handler);
-			$dispatcher->addMiddleware(...$middleware);
+			$this->middlewareDispatcher->addMiddleware(...$middleware);
 
-			return $dispatcher->handle($request);
+			return $this->middlewareDispatcher->handle($request);
 		}
 
 		return $handler->handle($request);

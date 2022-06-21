@@ -72,7 +72,8 @@ final class Application implements MiddlewareDispatcherInterface, RouteCollector
 
 	public function addConditionalMiddleware(): ConditionalMiddleware
 	{
-		$conditionalMiddleware = new ConditionalMiddleware($this->commonResolver);
+		$middlewareDispatcher = new MiddlewareDispatcher($this->commonResolver, $this);
+		$conditionalMiddleware = new ConditionalMiddleware($middlewareDispatcher);
 
 		$this->addMiddleware($conditionalMiddleware);
 
