@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "07a3db60da629f615d84a030df5a5b93",
+    "content-hash": "0ab0bd46d2909334f8827b534ed6d266",
     "packages": [
         {
             "name": "psr/container",
@@ -283,16 +283,16 @@
         },
         {
             "name": "semperton/routing",
-            "version": "dev-main",
+            "version": "2.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/semperton/routing.git",
-                "reference": "6520bb29c13f09498d5922ccce95c310a4496b75"
+                "reference": "4cd9f115e9ec5eea09e659a6fb2c2e6bd949deea"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/semperton/routing/zipball/6520bb29c13f09498d5922ccce95c310a4496b75",
-                "reference": "6520bb29c13f09498d5922ccce95c310a4496b75",
+                "url": "https://api.github.com/repos/semperton/routing/zipball/4cd9f115e9ec5eea09e659a6fb2c2e6bd949deea",
+                "reference": "4cd9f115e9ec5eea09e659a6fb2c2e6bd949deea",
                 "shasum": ""
             },
             "require": {
@@ -305,7 +305,6 @@
                 "phpunit/phpunit": "^9.5",
                 "vimeo/psalm": "^4.7"
             },
-            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
@@ -319,9 +318,9 @@
             "description": "The Semperton Routing component.",
             "support": {
                 "issues": "https://github.com/semperton/routing/issues",
-                "source": "https://github.com/semperton/routing/tree/main"
+                "source": "https://github.com/semperton/routing/tree/2.0.0"
             },
-            "time": "2022-06-08T09:23:55+00:00"
+            "time": "2022-06-21T13:57:00+00:00"
         }
     ],
     "packages-dev": [
@@ -4122,9 +4121,7 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "semperton/routing": 20
-    },
+    "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
