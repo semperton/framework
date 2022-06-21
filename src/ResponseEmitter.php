@@ -8,8 +8,6 @@ use Semperton\Framework\Interfaces\ResponseEmitterInterface;
 use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 
-use const CONNECTION_NORMAL;
-
 use function headers_sent;
 use function ob_get_level;
 use function ob_get_length;
@@ -18,6 +16,8 @@ use function strtolower;
 use function ob_implicit_flush;
 use function connection_status;
 use function in_array;
+
+use const CONNECTION_NORMAL;
 
 final class ResponseEmitter implements ResponseEmitterInterface
 {

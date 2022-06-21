@@ -16,6 +16,9 @@ use function implode;
 use function json_encode;
 use function get_class;
 
+use const JSON_UNESCAPED_UNICODE;
+use const JSON_UNESCAPED_SLASHES;
+
 final class ErrorHandler implements ErrorHandlerInterface
 {
 	protected ResponseFactoryInterface $responseFactory;
@@ -35,8 +38,6 @@ final class ErrorHandler implements ErrorHandlerInterface
 			$response = $response->withHeader('Allow', implode(',', $allowedMethods));
 		}
 
-		$response = $response->withHeader('Content-Type', 'application/json');
-
 		$data = [
 			'status' => $statusCode
 		];
@@ -46,7 +47,8 @@ final class ErrorHandler implements ErrorHandlerInterface
 			$data['errors'][] = $this->getExceptionData($prevEx);
 		}
 
-		$response->getBody()->write(json_encode($data));
+		$response = $response->withHeader('Content-Type', 'application/json');
+		$response->getBody()->write(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
 		return $response;
 	}
