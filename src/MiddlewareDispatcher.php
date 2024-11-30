@@ -11,11 +11,8 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use OutOfBoundsException;
 use Semperton\Framework\Interfaces\CommonResolverInterface;
-use Semperton\Framework\Interfaces\MiddlewareDispatcherInterface;
 
-use function array_map;
-
-final class MiddlewareDispatcher implements MiddlewareDispatcherInterface
+final class MiddlewareDispatcher implements RequestHandlerInterface
 {
 	protected ArrayIterator $middleware;
 
@@ -23,19 +20,17 @@ final class MiddlewareDispatcher implements MiddlewareDispatcherInterface
 
 	protected ?RequestHandlerInterface $delegateHandler;
 
+	/**
+	 * @param array<string|callable|MiddlewareInterface> $middleware
+	 */
 	public function __construct(
+		array $middleware,
 		CommonResolverInterface $commonResolver,
 		?RequestHandlerInterface $delegateHandler = null
 	) {
-		$this->middleware = new ArrayIterator();
+		$this->middleware = new ArrayIterator($middleware);
 		$this->commonResolver = $commonResolver;
 		$this->delegateHandler = $delegateHandler;
-	}
-
-	public function addMiddleware(...$middleware): MiddlewareDispatcherInterface
-	{
-		array_map([$this->middleware, 'append'], $middleware);
-		return $this;
 	}
 
 	public function handle(ServerRequestInterface $request): ResponseInterface

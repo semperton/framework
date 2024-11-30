@@ -26,7 +26,7 @@ final class ApplicationTest extends TestCase
 		);
 
 		$app->addRoutingMiddleware();
-		// $app->addConditionalMiddleware();
+		$app->addConditionalMiddleware();
 		$app->addActionMiddleware();
 
 		$action = new TestAction($factory);
@@ -41,16 +41,10 @@ final class ApplicationTest extends TestCase
 			]);
 		});
 
-		// $app->get('/home', $action);
-
 		$request = $this->createRequest('GET', '/home');
 		$response = $app->handle($request);
 
-		$this->assertEquals('Hello World', (string)$response->getBody());
-
-		// re-add middleware for testing
-		$app->addRoutingMiddleware();
-		$app->addActionMiddleware();
+		$this->assertEquals('Hello World > after', (string)$response->getBody());
 
 		$request = $this->createRequest('GET', '/');
 		$response = $app->handle($request);
