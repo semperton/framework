@@ -10,5 +10,5 @@ use Throwable;
 
 interface ErrorHandlerInterface
 {
-	public function handle(ServerRequestInterface $request, Throwable $exception): ResponseInterface;
+    public function handle(ServerRequestInterface $request, Throwable $exception): ResponseInterface;
 }

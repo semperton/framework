@@ -15,74 +15,74 @@ use function array_merge;
 
 final class RouteCollector implements RouteCollectorInterface, RouteCollectionInterface
 {
-	protected RouteCollection $routeCollection;
+    protected RouteCollection $routeCollection;
 
-	/** @var array<int, string|callable|MiddlewareInterface> */
-	protected array $groupMiddleware = [];
+    /** @var array<int, string|callable|MiddlewareInterface> */
+    protected array $groupMiddleware = [];
 
-	public function __construct(?RouteCollection $routeCollection = null)
-	{
-		$this->routeCollection = $routeCollection ?? new RouteCollection();
-	}
+    public function __construct(?RouteCollection $routeCollection = null)
+    {
+        $this->routeCollection = $routeCollection ?? new RouteCollection();
+    }
 
-	public function getRouteTree(): RouteNode
-	{
-		return $this->routeCollection->getRouteTree();
-	}
+    public function getRouteTree(): RouteNode
+    {
+        return $this->routeCollection->getRouteTree();
+    }
 
-	public function group(string $path, Closure $callback, array $middleware = []): self
-	{
-		$currentMiddleware = $this->groupMiddleware;
+    public function group(string $path, Closure $callback, array $middleware = []): self
+    {
+        $currentMiddleware = $this->groupMiddleware;
 
-		$this->groupMiddleware = array_merge($this->groupMiddleware, $middleware);
+        $this->groupMiddleware = array_merge($this->groupMiddleware, $middleware);
 
-		$this->routeCollection->group($path, function () use ($callback) {
-			$callback($this);
-		});
+        $this->routeCollection->group($path, function () use ($callback) {
+            $callback($this);
+        });
 
-		$this->groupMiddleware = $currentMiddleware;
+        $this->groupMiddleware = $currentMiddleware;
 
-		return $this;
-	}
+        return $this;
+    }
 
-	public function map(array $methods, string $path, $action, array $middleware = []): self
-	{
-		$middleware = array_merge($this->groupMiddleware, $middleware);
+    public function map(array $methods, string $path, $action, array $middleware = []): self
+    {
+        $middleware = array_merge($this->groupMiddleware, $middleware);
 
-		$route = new RouteObject($action, $middleware);
+        $route = new RouteObject($action, $middleware);
 
-		$this->routeCollection->map($methods, $path, $route);
+        $this->routeCollection->map($methods, $path, $route);
 
-		return $this;
-	}
+        return $this;
+    }
 
-	public function get(string $path, $action, array $middleware = []): self
-	{
-		return $this->map(['GET'], $path, $action, $middleware);
-	}
+    public function get(string $path, $action, array $middleware = []): self
+    {
+        return $this->map(['GET'], $path, $action, $middleware);
+    }
 
-	public function post(string $path, $action, array $middleware = []): self
-	{
-		return $this->map(['POST'], $path, $action, $middleware);
-	}
+    public function post(string $path, $action, array $middleware = []): self
+    {
+        return $this->map(['POST'], $path, $action, $middleware);
+    }
 
-	public function put(string $path, $action, array $middleware = []): self
-	{
-		return $this->map(['PUT'], $path, $action, $middleware);
-	}
+    public function put(string $path, $action, array $middleware = []): self
+    {
+        return $this->map(['PUT'], $path, $action, $middleware);
+    }
 
-	public function delete(string $path, $action, array $middleware = []): self
-	{
-		return $this->map(['DELETE'], $path, $action, $middleware);
-	}
+    public function delete(string $path, $action, array $middleware = []): self
+    {
+        return $this->map(['DELETE'], $path, $action, $middleware);
+    }
 
-	public function patch(string $path, $action, array $middleware = []): self
-	{
-		return $this->map(['PATCH'], $path, $action, $middleware);
-	}
+    public function patch(string $path, $action, array $middleware = []): self
+    {
+        return $this->map(['PATCH'], $path, $action, $middleware);
+    }
 
-	public function options(string $path, $action, array $middleware = []): self
-	{
-		return $this->map(['OPTIONS'], $path, $action, $middleware);
-	}
+    public function options(string $path, $action, array $middleware = []): self
+    {
+        return $this->map(['OPTIONS'], $path, $action, $middleware);
+    }
 }

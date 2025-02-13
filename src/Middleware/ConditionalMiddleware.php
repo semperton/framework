@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Semperton\Framework\Middleware;
 
-use Psr\Http\Server\MiddlewareInterface;
-use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Semperton\Framework\Interfaces\CommonResolverInterface;
 use Semperton\Framework\MiddlewareDispatcher;
@@ -14,24 +14,24 @@ use Semperton\Framework\Routing\RouteObject;
 
 final class ConditionalMiddleware implements MiddlewareInterface
 {
-	protected CommonResolverInterface $commonResolver;
+    protected CommonResolverInterface $commonResolver;
 
-	public function __construct(CommonResolverInterface $commonResolver)
-	{
-		$this->commonResolver = $commonResolver;
-	}
+    public function __construct(CommonResolverInterface $commonResolver)
+    {
+        $this->commonResolver = $commonResolver;
+    }
 
-	public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
-	{
-		/** @var mixed */
-		$routeObject = $request->getAttribute('_route_object');
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        /** @var mixed */
+        $routeObject = $request->getAttribute('_route_object');
 
-		if ($routeObject instanceof RouteObject && !!$middleware = $routeObject->getMiddleware()) {
+        if ($routeObject instanceof RouteObject && !!$middleware = $routeObject->getMiddleware()) {
 
-			$dispatcher = new MiddlewareDispatcher($middleware, $this->commonResolver, $handler);
-			return $dispatcher->handle($request);
-		}
+            $dispatcher = new MiddlewareDispatcher($middleware, $this->commonResolver, $handler);
+            return $dispatcher->handle($request);
+        }
 
-		return $handler->handle($request);
-	}
+        return $handler->handle($request);
+    }
 }

@@ -6,27 +6,27 @@ namespace Semperton\Framework\Exception;
 
 final class HttpMethodNotAllowedException extends HttpException
 {
-	protected $code = 405;
+    protected $code = 405;
 
-	protected $message = 'Method Not Allowed';
+    protected $message = 'Method Not Allowed';
 
-	/** @var array<int, string> */
-	protected array $allowedMethods = [];
+    /** @var array<int, string> */
+    protected array $allowedMethods = [];
 
-	/**
-	 * @param array<int, string> $methods
-	 */
-	public function setAllowedMethods(array $methods): self
-	{
-		$this->allowedMethods = $methods;
-		return $this;
-	}
+    /**
+     * @param array<int, string> $methods
+     */
+    public function setAllowedMethods(array $methods): self
+    {
+        $this->allowedMethods = $methods;
+        return $this;
+    }
 
-	/**
-	 * @return array<int, string>
-	 */
-	public function getAllowedMethods(): array
-	{
-		return $this->allowedMethods;
-	}
+    /**
+     * @return array<int, string>
+     */
+    public function getAllowedMethods(): array
+    {
+        return $this->allowedMethods;
+    }
 }

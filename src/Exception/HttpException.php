@@ -10,19 +10,19 @@ use Throwable;
 
 abstract class HttpException extends RuntimeException
 {
-	protected ServerRequestInterface $request;
+    protected ServerRequestInterface $request;
 
-	public function __construct(
-		ServerRequestInterface $request,
-		?Throwable $previous = null
-	) {
-		parent::__construct('', 0, $previous);
+    public function __construct(
+        ServerRequestInterface $request,
+        ?Throwable $previous = null
+    ) {
+        parent::__construct('', 0, $previous);
 
-		$this->request = $request;
-	}
+        $this->request = $request;
+    }
 
-	public function getRequest(): ServerRequestInterface
-	{
-		return $this->request;
-	}
+    public function getRequest(): ServerRequestInterface
+    {
+        return $this->request;
+    }
 }

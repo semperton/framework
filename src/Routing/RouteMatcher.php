@@ -12,15 +12,15 @@ use Semperton\Routing\MatchResult;
 
 final class RouteMatcher implements RouteMatcherInterface
 {
-	protected RouteCollectionInterface $routeCollection;
+    protected RouteCollectionInterface $routeCollection;
 
-	public function __construct(RouteCollectionInterface $routeCollection)
-	{
-		$this->routeCollection = $routeCollection;
-	}
+    public function __construct(RouteCollectionInterface $routeCollection)
+    {
+        $this->routeCollection = $routeCollection;
+    }
 
-	public function matchRequest(ServerRequestInterface $request): MatchResult
-	{
-		return (new RoutingRouteMatcher($this->routeCollection))->matchRequest($request);
-	}
+    public function matchRequest(ServerRequestInterface $request): MatchResult
+    {
+        return (new RoutingRouteMatcher($this->routeCollection))->matchRequest($request);
+    }
 }

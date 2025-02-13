@@ -6,7 +6,7 @@ namespace Semperton\Framework\Exception;
 
 final class HttpNotFoundException extends HttpException
 {
-	protected $code = 404;
+    protected $code = 404;
 
-	protected $message = 'Not Found';
+    protected $message = 'Not Found';
 }
