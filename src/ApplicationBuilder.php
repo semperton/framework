@@ -12,7 +12,6 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Semperton\Framework\Handler\EndpointHandler;
 use Semperton\Framework\Handler\ErrorHandler;
-use Semperton\Framework\Interfaces\ApplicationBuilderInterface;
 use Semperton\Framework\Interfaces\ErrorHandlerInterface;
 use Semperton\Framework\Interfaces\RouteCollectorInterface;
 use Semperton\Framework\Middleware\ErrorMiddleware;
@@ -23,7 +22,7 @@ use Semperton\Routing\Matcher\RouteMatcher;
 
 use function is_string;
 
-final class ApplicationBuilder implements ApplicationBuilderInterface, RouteCollectorInterface
+final class ApplicationBuilder implements RouteCollectorInterface
 {
     /** @var list<MiddlewareInterface> */
     private array $middleware = [];
@@ -31,10 +30,12 @@ final class ApplicationBuilder implements ApplicationBuilderInterface, RouteColl
     /** @var list<MiddlewareInterface> */
     private array $groupMiddleware = [];
 
+    private bool $routing = false;
+
     public function __construct(
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly ?ContainerInterface $container = null,
-        private readonly RouteCollection $routeCollection = new RouteCollection()
+        private readonly RouteCollection $routeCollection = new RouteCollection(),
     ) {}
 
     /**
@@ -52,14 +53,25 @@ final class ApplicationBuilder implements ApplicationBuilderInterface, RouteColl
         return $this->add(new ErrorMiddleware($errorHandler ?? new ErrorHandler($this->responseFactory)));
     }
 
+    /**
+     * Optional, build() adds the routing as innermost middleware otherwise
+     */
     public function addRoutingMiddleware(?RequestMatcherInterface $requestMatcher = null): static
     {
+        $this->routing = true;
+
         return $this->add(new RoutingMiddleware($requestMatcher ?? new RouteMatcher($this->routeCollection)));
     }
 
     public function build(): Application
     {
-        return new Application($this->middleware, new EndpointHandler());
+        $middleware = $this->middleware;
+
+        if (!$this->routing) {
+            $middleware[] = new RoutingMiddleware(new RouteMatcher($this->routeCollection));
+        }
+
+        return new Application($middleware, new EndpointHandler());
     }
 
     public function group(string $path, Closure $callback, array $middleware = [], string $name = ''): static
@@ -83,7 +95,7 @@ final class ApplicationBuilder implements ApplicationBuilderInterface, RouteColl
         string $path,
         RequestHandlerInterface|string $handler,
         array $middleware = [],
-        string $name = ''
+        string $name = '',
     ): static {
         $handler = is_string($handler) ? $this->lazy($handler) : $handler;
         $middleware = [...$this->groupMiddleware, ...$this->resolveMiddleware($middleware)];

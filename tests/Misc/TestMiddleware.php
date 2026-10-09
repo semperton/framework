@@ -12,7 +12,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 final class TestMiddleware implements MiddlewareInterface
 {
     public function __construct(
-        private readonly string $marker
+        private readonly string $marker,
     ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

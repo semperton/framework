@@ -18,7 +18,7 @@ final class MiddlewareHandler implements RequestHandlerInterface
 {
     public function __construct(
         private readonly MiddlewareInterface $middleware,
-        private readonly RequestHandlerInterface $next
+        private readonly RequestHandlerInterface $next,
     ) {}
 
     /**

@@ -13,6 +13,8 @@ use Semperton\Framework\Exception\HttpNotFoundException;
 use Semperton\Framework\Middleware\RoutingMiddleware;
 use Semperton\Routing\MatchResult;
 
+use function in_array;
+
 /**
  * Last handler of the application, dispatches the matched route
  */
@@ -33,10 +35,12 @@ final class EndpointHandler implements RequestHandlerInterface
         }
 
         $methods = $matchResult->getMethods();
-        $method = $request->getMethod();
 
-        // GET, HEAD requests must not respond with a 405 status
-        if ($methods !== [] && $method !== 'GET' && $method !== 'HEAD') {
+        if ($methods !== []) {
+            // GET routes also serve HEAD requests
+            if (in_array('GET', $methods, true) && !in_array('HEAD', $methods, true)) {
+                $methods[] = 'HEAD';
+            }
             throw new HttpMethodNotAllowedException($request, $methods);
         }
 

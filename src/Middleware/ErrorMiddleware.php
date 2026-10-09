@@ -14,7 +14,7 @@ use Throwable;
 final class ErrorMiddleware implements MiddlewareInterface
 {
     public function __construct(
-        private readonly ErrorHandlerInterface $errorHandler
+        private readonly ErrorHandlerInterface $errorHandler,
     ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

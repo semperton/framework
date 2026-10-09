@@ -18,7 +18,7 @@ final class LazyHandler implements RequestHandlerInterface, MiddlewareInterface
 {
     public function __construct(
         private readonly ContainerInterface $container,
-        private readonly string $id
+        private readonly string $id,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface

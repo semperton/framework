@@ -18,7 +18,7 @@ final class RoutingMiddleware implements MiddlewareInterface
     public const ATTRIBUTE = '_route_match_result';
 
     public function __construct(
-        private readonly RequestMatcherInterface $requestMatcher
+        private readonly RequestMatcherInterface $requestMatcher,
     ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

@@ -8,6 +8,9 @@ use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 use Throwable;
 
+/**
+ * The message is sent to the client, never put internal details in it
+ */
 abstract class HttpException extends RuntimeException
 {
     /** @var int */
@@ -18,9 +21,10 @@ abstract class HttpException extends RuntimeException
 
     public function __construct(
         protected readonly ServerRequestInterface $request,
-        ?Throwable $previous = null
+        string $message = '',
+        ?Throwable $previous = null,
     ) {
-        parent::__construct(static::REASON_PHRASE, static::STATUS_CODE, $previous);
+        parent::__construct($message === '' ? static::REASON_PHRASE : $message, static::STATUS_CODE, $previous);
     }
 
     public function getRequest(): ServerRequestInterface

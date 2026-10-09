@@ -29,7 +29,6 @@ use Semperton\Framework\Interfaces\RouteCollectorInterface;
 $builder = new ApplicationBuilder(new Psr17Factory());
 
 $builder->addErrorMiddleware();
-$builder->addRoutingMiddleware();
 
 $builder->get('/users/:id:d', $userHandler); // $request->getAttribute('id')
 $builder->post('/users', $createHandler, [$authMiddleware]);
@@ -44,7 +43,9 @@ $response = $app->handle($request);
 
 Middleware runs in the order it was added, the first one is the outermost.
 Group and route middleware only runs for matched routes, after the global middleware.
-The `RoutingMiddleware` matches the route, the built in `EndpointHandler` dispatches it or throws a `404` / `405` exception.
+The built in `EndpointHandler` dispatches the matched route or throws a `404` / `405` exception (with an `Allow` header, `GET` routes include `HEAD`).
+
+Routing runs as the innermost global middleware by default. Call `addRoutingMiddleware()` to place it earlier, e.g. when a middleware needs the matched route (`$request->getAttribute(RoutingMiddleware::ATTRIBUTE)`), or to use a custom matcher.
 
 ### Routes
 
@@ -74,21 +75,41 @@ $builder->get('/', IndexHandler::class, [CacheMiddleware::class]);
 
 ## Error handling
 
-`addErrorMiddleware()` renders all exceptions as JSON. Details and traces are only exposed in debug mode:
+`addErrorMiddleware()` renders all exceptions as JSON. Add it first, so it catches the errors of all other middleware.
+Details and traces are only exposed in debug mode, server errors (5xx) are passed to an optional PSR-3 logger:
 ```php
 use Semperton\Framework\Handler\ErrorHandler;
 
-$builder->addErrorMiddleware(new ErrorHandler($responseFactory, debug: true));
+$builder->addErrorMiddleware(new ErrorHandler($responseFactory, debug: true, logger: $logger));
 ```
-Throw `HttpBadRequestException`, `HttpNotFoundException` or your own `HttpException` to respond with a specific status code.
+Throw an `HttpException` to respond with a specific status code. Its message is sent to the client, so never put internal details in it:
+```php
+throw new HttpNotFoundException($request, 'User not found'); // {"status":404,"message":"User not found"}
+```
+The messages of all other exceptions are never exposed. Extend `HttpException` for other status codes:
+```php
+final class HttpForbiddenException extends HttpException
+{
+    protected const STATUS_CODE = 403;
+    protected const REASON_PHRASE = 'Forbidden';
+}
+```
 Implement the `ErrorHandlerInterface` for custom error responses.
 
 ## Request body
 
-The `RequestBodyMiddleware` parses `application/json` and `application/x-www-form-urlencoded` bodies, unless the request already has a parsed body.
+The `RequestBodyMiddleware` parses non-empty `application/json` (and `+json` types like `application/merge-patch+json`) and `application/x-www-form-urlencoded` bodies, unless the request already has a parsed body.
 Invalid JSON results in a `400` response.
 ```php
 $builder->add(new RequestBodyMiddleware());
+```
+
+## Development
+
+```
+composer test   # phpunit
+composer check  # psalm + php-cs-fixer (PER-CS)
+composer fix    # apply the code style
 ```
 
 ## Running
@@ -103,3 +124,5 @@ use Semperton\Framework\ResponseEmitter;
 ```
 
 In long-running processes (FrankenPHP worker mode, RoadRunner, Workerman, Swoole ...), build the application once at boot and call `handle()` for every request.
+Routes added to the builder after `build()` still reach the application, so finish the configuration first.
+`HEAD` requests are routed to `GET` handlers and return their body. PHP-FPM drops it automatically, in workers the server adapter must not send it.

@@ -19,9 +19,10 @@ final class HttpMethodNotAllowedException extends HttpException
     public function __construct(
         ServerRequestInterface $request,
         private readonly array $allowedMethods,
-        ?Throwable $previous = null
+        string $message = '',
+        ?Throwable $previous = null,
     ) {
-        parent::__construct($request, $previous);
+        parent::__construct($request, $message, $previous);
     }
 
     /**

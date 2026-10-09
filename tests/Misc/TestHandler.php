@@ -18,7 +18,7 @@ final class TestHandler implements RequestHandlerInterface
 {
     public function __construct(
         private readonly ResponseFactoryInterface $responseFactory,
-        private readonly string $text = 'handler'
+        private readonly string $text = 'handler',
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface

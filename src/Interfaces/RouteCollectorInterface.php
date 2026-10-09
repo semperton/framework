@@ -25,7 +25,7 @@ interface RouteCollectorInterface
         string $path,
         RequestHandlerInterface|string $handler,
         array $middleware = [],
-        string $name = ''
+        string $name = '',
     ): static;
 
     /**

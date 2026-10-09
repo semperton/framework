@@ -7,6 +7,7 @@ namespace Semperton\Framework\Handler;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
 use Semperton\Framework\Exception\HttpException;
 use Semperton\Framework\Exception\HttpMethodNotAllowedException;
 use Semperton\Framework\Interfaces\ErrorHandlerInterface;
@@ -23,17 +24,24 @@ use const JSON_UNESCAPED_UNICODE;
 
 /**
  * Renders exceptions as json, details are only exposed in debug mode
+ * Server errors (5xx) are passed to the logger
  */
 final class ErrorHandler implements ErrorHandlerInterface
 {
     public function __construct(
         private readonly ResponseFactoryInterface $responseFactory,
-        private readonly bool $debug = false
+        private readonly bool $debug = false,
+        private readonly ?LoggerInterface $logger = null,
     ) {}
 
     public function handle(ServerRequestInterface $request, Throwable $exception): ResponseInterface
     {
         $statusCode = $exception instanceof HttpException ? $exception->getCode() : 500;
+
+        if ($statusCode >= 500) {
+            $this->logger?->error($exception->getMessage(), ['exception' => $exception]);
+        }
+
         $response = $this->responseFactory->createResponse($statusCode)
             ->withHeader('Content-Type', 'application/json');
 
@@ -43,7 +51,8 @@ final class ErrorHandler implements ErrorHandlerInterface
 
         $data = [
             'status' => $statusCode,
-            'message' => $response->getReasonPhrase()
+            // only http exception messages are meant for the client
+            'message' => $exception instanceof HttpException ? $exception->getMessage() : $response->getReasonPhrase(),
         ];
 
         if ($this->debug) {
@@ -54,13 +63,13 @@ final class ErrorHandler implements ErrorHandlerInterface
                     'message' => $exception->getMessage(),
                     'file' => $exception->getFile(),
                     'line' => $exception->getLine(),
-                    'trace' => explode("\n", $exception->getTraceAsString())
+                    'trace' => explode("\n", $exception->getTraceAsString()),
                 ];
             } while ($exception = $exception->getPrevious());
         }
 
         $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR;
-        $response->getBody()->write((string)json_encode($data, $flags));
+        $response->getBody()->write((string) json_encode($data, $flags));
 
         return $response;
     }

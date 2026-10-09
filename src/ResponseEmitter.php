@@ -16,12 +16,13 @@ use function ob_get_length;
 use function ob_get_level;
 use function ob_implicit_flush;
 use function strtolower;
+
 use const CONNECTION_NORMAL;
 
 final class ResponseEmitter implements ResponseEmitterInterface
 {
     public function __construct(
-        protected readonly int $chunkSize = 4096
+        protected readonly int $chunkSize = 4096,
     ) {}
 
     public function emit(ResponseInterface $response): void
@@ -61,7 +62,7 @@ final class ResponseEmitter implements ResponseEmitterInterface
 
         foreach ($headers as $name => $values) {
 
-            $first = strtolower((string)$name) !== 'set-cookie';
+            $first = strtolower((string) $name) !== 'set-cookie';
 
             foreach ($values as $value) {
                 header("$name: $value", $first);
@@ -77,7 +78,7 @@ final class ResponseEmitter implements ResponseEmitterInterface
         $stream = $response->getBody();
 
         if ($this->chunkSize < 1) {
-            echo (string)$stream;
+            echo (string) $stream;
             return;
         }
 

@@ -15,13 +15,14 @@ use function explode;
 use function is_array;
 use function json_decode;
 use function parse_str;
+use function str_ends_with;
 use function strtolower;
 use function trim;
 
 use const JSON_THROW_ON_ERROR;
 
 /**
- * Parses json and urlencoded bodies, unless the request already has a parsed body
+ * Parses non-empty json (including +json types) and urlencoded bodies, unless the request already has a parsed body
  */
 final class RequestBodyMiddleware implements MiddlewareInterface
 {
@@ -31,19 +32,25 @@ final class RequestBodyMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
+        $body = (string) $request->getBody();
+
+        if ($body === '') {
+            return $handler->handle($request);
+        }
+
         $type = strtolower(trim(explode(';', $request->getHeaderLine('Content-Type'), 2)[0]));
 
-        if ($type === 'application/json') {
+        if ($type === 'application/json' || str_ends_with($type, '+json')) {
             try {
                 /** @var array|scalar|null */
-                $data = json_decode((string)$request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+                $data = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
             } catch (JsonException $exception) {
-                throw new HttpBadRequestException($request, $exception);
+                throw new HttpBadRequestException($request, previous: $exception);
             }
             // scalar json values are no valid parsed body
             $request = $request->withParsedBody(is_array($data) ? $data : null);
         } elseif ($type === 'application/x-www-form-urlencoded') {
-            parse_str((string)$request->getBody(), $data);
+            parse_str($body, $data);
             $request = $request->withParsedBody($data);
         }
 

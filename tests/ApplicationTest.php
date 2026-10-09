@@ -13,8 +13,12 @@ use Psr\Container\NotFoundExceptionInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\AbstractLogger;
 use RuntimeException;
+use Semperton\Framework\Application;
 use Semperton\Framework\ApplicationBuilder;
+use Semperton\Framework\Exception\HttpNotFoundException;
+use Semperton\Framework\Handler\EndpointHandler;
 use Semperton\Framework\Handler\ErrorHandler;
 use Semperton\Framework\Interfaces\RouteCollectorInterface;
 use Semperton\Framework\Middleware\RequestBodyMiddleware;
@@ -33,7 +37,7 @@ final class ApplicationTest extends TestCase
 
     private function body(ResponseInterface $response): string
     {
-        return (string)$response->getBody();
+        return (string) $response->getBody();
     }
 
     private function builder(?ContainerInterface $container = null, ?RouteCollection $routes = null): ApplicationBuilder
@@ -44,7 +48,6 @@ final class ApplicationTest extends TestCase
     public function testRouteAndParams(): void
     {
         $app = $this->builder()
-            ->addRoutingMiddleware()
             ->get('/', new TestHandler($this->factory, 'index'))
             ->get('/hello/:name', new TestHandler($this->factory))
             ->build();
@@ -102,7 +105,19 @@ final class ApplicationTest extends TestCase
 
         $response = $app->handle(new ServerRequest('DELETE', '/item'));
         $this->assertSame(405, $response->getStatusCode());
-        $this->assertSame('GET, POST', $response->getHeaderLine('Allow'));
+        $this->assertSame('GET, POST, HEAD', $response->getHeaderLine('Allow'));
+    }
+
+    public function testMethodNotAllowedForGet(): void
+    {
+        $app = $this->builder()
+            ->addErrorMiddleware()
+            ->post('/item', new TestHandler($this->factory))
+            ->build();
+
+        $response = $app->handle(new ServerRequest('GET', '/item'));
+        $this->assertSame(405, $response->getStatusCode());
+        $this->assertSame('POST', $response->getHeaderLine('Allow'));
     }
 
     public function testHeadFallsBackToGet(): void
@@ -118,22 +133,22 @@ final class ApplicationTest extends TestCase
     public function testMissingRoutingMiddleware(): void
     {
         $this->expectException(LogicException::class);
-        $this->builder()->build()->handle(new ServerRequest('GET', '/'));
+        (new Application([], new EndpointHandler()))->handle(new ServerRequest('GET', '/'));
     }
 
     public function testLazyResolution(): void
     {
         $entries = [
             'handler' => new TestHandler($this->factory),
-            'middleware' => new TestMiddleware('lazy')
+            'middleware' => new TestMiddleware('lazy'),
         ];
 
-        $container = new class($entries) implements ContainerInterface {
+        $container = new class ($entries) implements ContainerInterface {
             public function __construct(private array $entries) {}
 
             public function get(string $id): mixed
             {
-                return $this->entries[$id] ?? throw new class($id) extends RuntimeException implements NotFoundExceptionInterface {};
+                return $this->entries[$id] ?? throw new class ($id) extends RuntimeException implements NotFoundExceptionInterface {};
             }
 
             public function has(string $id): bool
@@ -166,7 +181,7 @@ final class ApplicationTest extends TestCase
             }
         };
 
-        $build = fn (bool $debug) => $this->builder()
+        $build = fn(bool $debug) => $this->builder()
             ->addErrorMiddleware(new ErrorHandler($this->factory, $debug))
             ->addRoutingMiddleware()
             ->get('/', $failing)
@@ -181,13 +196,50 @@ final class ApplicationTest extends TestCase
         $this->assertSame(['outer', 'inner'], array_column($data['errors'], 'message'));
     }
 
+    public function testErrorMessagesAndLogging(): void
+    {
+        $logger = new class extends AbstractLogger {
+            /** @var list<string> */
+            public array $messages = [];
+
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->messages[] = (string) $message;
+            }
+        };
+
+        $handler = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                if ($request->getUri()->getPath() === '/user') {
+                    throw new HttpNotFoundException($request, 'User not found');
+                }
+                throw new RuntimeException('Secret internal error');
+            }
+        };
+
+        $app = $this->builder()
+            ->addErrorMiddleware(new ErrorHandler($this->factory, logger: $logger))
+            ->get('/user', $handler)
+            ->get('/fail', $handler)
+            ->build();
+
+        $response = $app->handle(new ServerRequest('GET', '/user'));
+        $this->assertSame('{"status":404,"message":"User not found"}', $this->body($response));
+        $this->assertSame([], $logger->messages);
+
+        $response = $app->handle(new ServerRequest('GET', '/fail'));
+        $this->assertSame('{"status":500,"message":"Internal Server Error"}', $this->body($response));
+        $this->assertSame(['Secret internal error'], $logger->messages);
+    }
+
     public function testRequestBody(): void
     {
         $echo = new class implements RequestHandlerInterface {
             public function handle(ServerRequestInterface $request): ResponseInterface
             {
                 $response = (new Psr17Factory())->createResponse();
-                $response->getBody()->write((string)json_encode($request->getParsedBody()));
+                $response->getBody()->write((string) json_encode($request->getParsedBody()));
                 return $response;
             }
         };
@@ -202,6 +254,9 @@ final class ApplicationTest extends TestCase
         $json = new ServerRequest('POST', '/', ['Content-Type' => 'application/json; charset=utf-8'], '{"a":1}');
         $this->assertSame('{"a":1}', $this->body($app->handle($json)));
 
+        $patch = new ServerRequest('POST', '/', ['Content-Type' => 'application/merge-patch+json'], '{"b":2}');
+        $this->assertSame('{"b":2}', $this->body($app->handle($patch)));
+
         $form = new ServerRequest('POST', '/', ['Content-Type' => 'application/x-www-form-urlencoded'], 'a=1&b[]=2');
         $this->assertSame('{"a":"1","b":["2"]}', $this->body($app->handle($form)));
 
@@ -210,6 +265,9 @@ final class ApplicationTest extends TestCase
 
         $invalid = new ServerRequest('POST', '/', ['Content-Type' => 'application/json'], '{a');
         $this->assertSame(400, $app->handle($invalid)->getStatusCode());
+
+        $empty = new ServerRequest('POST', '/', ['Content-Type' => 'application/json']);
+        $this->assertSame('null', $this->body($app->handle($empty)));
     }
 
     public function testReuseAcrossRequests(): void
