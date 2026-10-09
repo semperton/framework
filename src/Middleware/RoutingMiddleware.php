@@ -8,41 +8,28 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Semperton\Framework\Exception\HttpMethodNotAllowedException;
-use Semperton\Framework\Exception\HttpNotFoundException;
-use Semperton\Framework\Interfaces\RouteMatcherInterface;
+use Semperton\Routing\Matcher\RequestMatcherInterface;
 
+/**
+ * Adds the MatchResult and the route params as request attributes
+ */
 final class RoutingMiddleware implements MiddlewareInterface
 {
-    protected RouteMatcherInterface $routeMatcher;
+    public const ATTRIBUTE = '_route_match_result';
 
-    public function __construct(RouteMatcherInterface $routeMatcher)
-    {
-        $this->routeMatcher = $routeMatcher;
-    }
+    public function __construct(
+        private readonly RequestMatcherInterface $requestMatcher
+    ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $matchResult = $this->routeMatcher->matchRequest($request);
+        $matchResult = $this->requestMatcher->matchRequest($request);
+        $request = $request->withAttribute(self::ATTRIBUTE, $matchResult);
 
-        if ($matchResult->isMatch()) {
-
-            $request = $request->withAttribute('_route_object', $matchResult->getHandler())
-                ->withAttribute('_route_params', $matchResult->getParams());
-
-            return $handler->handle($request);
+        foreach ($matchResult->getParams() as $name => $value) {
+            $request = $request->withAttribute($name, $value);
         }
 
-        $methods = $matchResult->getMethods();
-
-        // GET, HEAD requests must not respond with a 405 status
-        if (!empty($methods) && !in_array($request->getMethod(), ['GET', 'HEAD'])) {
-
-            $exception = new HttpMethodNotAllowedException($request);
-            $exception->setAllowedMethods($methods);
-            throw $exception;
-        }
-
-        throw new HttpNotFoundException($request);
+        return $handler->handle($request);
     }
 }

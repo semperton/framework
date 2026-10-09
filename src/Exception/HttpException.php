@@ -10,15 +10,17 @@ use Throwable;
 
 abstract class HttpException extends RuntimeException
 {
-    protected ServerRequestInterface $request;
+    /** @var int */
+    protected const STATUS_CODE = 500;
+
+    /** @var string */
+    protected const REASON_PHRASE = 'Internal Server Error';
 
     public function __construct(
-        ServerRequestInterface $request,
+        protected readonly ServerRequestInterface $request,
         ?Throwable $previous = null
     ) {
-        parent::__construct('', 0, $previous);
-
-        $this->request = $request;
+        parent::__construct(static::REASON_PHRASE, static::STATUS_CODE, $previous);
     }
 
     public function getRequest(): ServerRequestInterface

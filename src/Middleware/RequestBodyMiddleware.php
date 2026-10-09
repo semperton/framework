@@ -4,52 +4,46 @@ declare(strict_types=1);
 
 namespace Semperton\Framework\Middleware;
 
+use JsonException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Semperton\Framework\Exception\HttpBadRequestException;
 
 use function explode;
+use function is_array;
 use function json_decode;
-use function mb_parse_str;
+use function parse_str;
 use function strtolower;
 use function trim;
 
+use const JSON_THROW_ON_ERROR;
+
+/**
+ * Parses json and urlencoded bodies, unless the request already has a parsed body
+ */
 final class RequestBodyMiddleware implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        $header = $request->getHeader('Content-Type');
+        if ($request->getParsedBody() !== null) {
+            return $handler->handle($request);
+        }
 
-        if (isset($header[0])) {
+        $type = strtolower(trim(explode(';', $request->getHeaderLine('Content-Type'), 2)[0]));
 
-            $header = explode(';', $header[0], 2);
-            $header = strtolower(trim($header[0]));
-
-            $method = $request->getMethod();
-            $body = (string)$request->getBody();
-
-            $data = null;
-
-            switch ($header) {
-                case 'application/json':
-                    /** @var object */
-                    $data = json_decode($body);
-                    break;
-                case 'application/x-www-form-urlencoded':
-                    if ($method === 'POST') {
-                        $data = $_POST;
-                    } else {
-                        mb_parse_str($body, $data);
-                    }
-                    break;
-                case 'multipart/form-data':
-                    if ($method === 'POST') {
-                        $data = $_POST;
-                    }
-                    break;
+        if ($type === 'application/json') {
+            try {
+                /** @var array|scalar|null */
+                $data = json_decode((string)$request->getBody(), true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException $exception) {
+                throw new HttpBadRequestException($request, $exception);
             }
-
+            // scalar json values are no valid parsed body
+            $request = $request->withParsedBody(is_array($data) ? $data : null);
+        } elseif ($type === 'application/x-www-form-urlencoded') {
+            parse_str((string)$request->getBody(), $data);
             $request = $request->withParsedBody($data);
         }
 

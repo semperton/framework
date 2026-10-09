@@ -11,10 +11,14 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 final class TestMiddleware implements MiddlewareInterface
 {
+    public function __construct(
+        private readonly string $marker
+    ) {}
+
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $handler->handle($request);
-        $response->getBody()->write(' > after');
+        $response->getBody()->write(" > {$this->marker}");
 
         return $response;
     }

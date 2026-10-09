@@ -4,26 +4,28 @@ declare(strict_types=1);
 
 namespace Semperton\Framework\Exception;
 
+use Psr\Http\Message\ServerRequestInterface;
+use Throwable;
+
 final class HttpMethodNotAllowedException extends HttpException
 {
-    protected $code = 405;
+    protected const STATUS_CODE = 405;
 
-    protected $message = 'Method Not Allowed';
-
-    /** @var array<int, string> */
-    protected array $allowedMethods = [];
+    protected const REASON_PHRASE = 'Method Not Allowed';
 
     /**
-     * @param array<int, string> $methods
+     * @param list<string> $allowedMethods
      */
-    public function setAllowedMethods(array $methods): self
-    {
-        $this->allowedMethods = $methods;
-        return $this;
+    public function __construct(
+        ServerRequestInterface $request,
+        private readonly array $allowedMethods,
+        ?Throwable $previous = null
+    ) {
+        parent::__construct($request, $previous);
     }
 
     /**
-     * @return array<int, string>
+     * @return list<string>
      */
     public function getAllowedMethods(): array
     {

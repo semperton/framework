@@ -20,12 +20,9 @@ use const CONNECTION_NORMAL;
 
 final class ResponseEmitter implements ResponseEmitterInterface
 {
-    protected int $chunkSize;
-
-    public function __construct(int $chunkSize = 4096)
-    {
-        $this->chunkSize = $chunkSize;
-    }
+    public function __construct(
+        protected readonly int $chunkSize = 4096
+    ) {}
 
     public function emit(ResponseInterface $response): void
     {
@@ -36,7 +33,7 @@ final class ResponseEmitter implements ResponseEmitterInterface
         }
 
         if (ob_get_level() > 0 && ob_get_length() > 0) {
-            throw new RuntimeException('Output already startet, unable to emit response');
+            throw new RuntimeException('Output already started, unable to emit response');
         }
 
         $responseEmpty = $this->isResponseEmpty($response);
