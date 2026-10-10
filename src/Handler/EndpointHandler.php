@@ -10,39 +10,26 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Semperton\Framework\Exception\HttpMethodNotAllowedException;
 use Semperton\Framework\Exception\HttpNotFoundException;
-use Semperton\Framework\Middleware\RoutingMiddleware;
-use Semperton\Framework\Route;
-use Semperton\Routing\MatchResult;
-
-use function in_array;
+use Semperton\Framework\RouteResult;
 
 /**
  * Last handler of the application, dispatches the matched route
+ *
+ * @internal used by the ApplicationBuilder
  */
 final class EndpointHandler implements RequestHandlerInterface
 {
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $matchResult = $request->getAttribute(RoutingMiddleware::ATTRIBUTE);
+        $result = RouteResult::fromRequest($request)
+            ?? throw new LogicException('No route result found, add the RoutingMiddleware');
 
-        if (!($matchResult instanceof MatchResult)) {
-            throw new LogicException('No route match result found, add the RoutingMiddleware');
+        if ($result->route !== null) {
+            return $result->route->handler->handle($request);
         }
 
-        if ($matchResult->isMatch()) {
-            /** @var Route */
-            $route = $matchResult->getHandler();
-            return $route->handler->handle($request);
-        }
-
-        $methods = $matchResult->getMethods();
-
-        if ($methods !== []) {
-            // GET routes also serve HEAD requests
-            if (in_array('GET', $methods, true) && !in_array('HEAD', $methods, true)) {
-                $methods[] = 'HEAD';
-            }
-            throw new HttpMethodNotAllowedException($request, $methods);
+        if ($result->allowedMethods !== []) {
+            throw new HttpMethodNotAllowedException($request, $result->allowedMethods);
         }
 
         throw new HttpNotFoundException($request);

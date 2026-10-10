@@ -13,6 +13,8 @@ use UnexpectedValueException;
 
 /**
  * Resolves a handler or middleware from the container on use
+ *
+ * @internal created by the ApplicationBuilder for container ids
  */
 final class LazyHandler implements RequestHandlerInterface, MiddlewareInterface
 {

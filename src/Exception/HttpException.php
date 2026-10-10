@@ -31,4 +31,12 @@ abstract class HttpException extends RuntimeException
     {
         return $this->request;
     }
+
+    /**
+     * The reason phrase of the status code
+     */
+    public function getTitle(): string
+    {
+        return static::REASON_PHRASE;
+    }
 }

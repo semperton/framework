@@ -23,7 +23,7 @@ use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
 
 /**
- * Renders exceptions as json, details are only exposed in debug mode
+ * Renders exceptions as problem details (RFC 9457), details are only exposed in debug mode
  * Server errors (5xx) are passed to the logger
  */
 final class ErrorHandler implements ErrorHandlerInterface
@@ -36,24 +36,41 @@ final class ErrorHandler implements ErrorHandlerInterface
 
     public function handle(ServerRequestInterface $request, Throwable $exception): ResponseInterface
     {
-        $statusCode = $exception instanceof HttpException ? $exception->getCode() : 500;
+        $httpException = null;
+        $statusCode = 500;
+
+        // invalid codes of custom http exceptions must not break the error response
+        if ($exception instanceof HttpException) {
+            $code = $exception->getCode();
+            if ($code >= 400 && $code <= 599) {
+                $httpException = $exception;
+                $statusCode = $code;
+            }
+        }
 
         if ($statusCode >= 500) {
             $this->logger?->error($exception->getMessage(), ['exception' => $exception]);
         }
 
         $response = $this->responseFactory->createResponse($statusCode)
-            ->withHeader('Content-Type', 'application/json');
+            ->withHeader('Content-Type', 'application/problem+json');
 
-        if ($exception instanceof HttpMethodNotAllowedException) {
-            $response = $response->withHeader('Allow', implode(', ', $exception->getAllowedMethods()));
+        if ($httpException instanceof HttpMethodNotAllowedException) {
+            $response = $response->withHeader('Allow', implode(', ', $httpException->getAllowedMethods()));
         }
 
+        $title = $httpException?->getTitle() ?? $response->getReasonPhrase();
+
         $data = [
+            'type' => 'about:blank',
+            'title' => $title,
             'status' => $statusCode,
-            // only http exception messages are meant for the client
-            'message' => $exception instanceof HttpException ? $exception->getMessage() : $response->getReasonPhrase(),
         ];
+
+        // only http exception messages are meant for the client
+        if ($httpException !== null && $httpException->getMessage() !== $title) {
+            $data['detail'] = $httpException->getMessage();
+        }
 
         if ($this->debug) {
             do {

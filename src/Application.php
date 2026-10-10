@@ -17,6 +17,7 @@ final class Application implements RequestHandlerInterface
     private readonly RequestHandlerInterface $handler;
 
     /**
+     * @internal use the ApplicationBuilder
      * @param list<MiddlewareInterface> $middleware the first entry is the outermost
      */
     public function __construct(array $middleware, RequestHandlerInterface $endpoint)

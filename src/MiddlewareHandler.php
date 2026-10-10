@@ -13,6 +13,8 @@ use function count;
 
 /**
  * Immutable link of a middleware chain, safe to reuse across requests
+ *
+ * @internal
  */
 final class MiddlewareHandler implements RequestHandlerInterface
 {

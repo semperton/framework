@@ -8,6 +8,9 @@ use Closure;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
+/**
+ * Type hint for group callbacks, not meant to be implemented, methods may be added in minor versions
+ */
 interface RouteCollectorInterface
 {
     /**

@@ -43,7 +43,13 @@ final class RequestBodyMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $body = (string) $request->getBody();
+        $stream = $request->getBody();
+        $body = (string) $stream;
+
+        // keep the raw body readable for the handler, e.g. for signature checks
+        if ($stream->isSeekable()) {
+            $stream->rewind();
+        }
 
         if ($body === '') {
             return $handler->handle($request);

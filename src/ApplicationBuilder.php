@@ -72,6 +72,10 @@ final class ApplicationBuilder implements RouteCollectorInterface
     {
         $this->assertNotBuilt();
 
+        if ($this->routing) {
+            throw new LogicException('The routing middleware is already added');
+        }
+
         $this->routing = true;
 
         return $this->add(new RoutingMiddleware(new RouteMatcher($this->routeCollection)));

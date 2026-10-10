@@ -8,8 +8,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-
-use function is_string;
+use Semperton\Framework\RouteResult;
 
 /**
  * Writes the given text, or the 'name' route param if set
@@ -23,9 +22,9 @@ final class TestHandler implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $name = $request->getAttribute('name');
+        $name = RouteResult::fromRequest($request)?->param('name');
         $response = $this->responseFactory->createResponse();
-        $response->getBody()->write(is_string($name) ? $name : $this->text);
+        $response->getBody()->write($name ?? $this->text);
 
         return $response;
     }

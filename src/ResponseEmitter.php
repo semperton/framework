@@ -42,8 +42,9 @@ final class ResponseEmitter implements ResponseEmitterInterface
 
         $responseEmpty = $this->isResponseEmpty($response);
 
-        $this->sendStatusLine($response);
+        // the status line comes last, header('Location: ...') would change the status code otherwise
         $this->sendHeaders($response);
+        $this->sendStatusLine($response);
 
         if (!$responseEmpty) {
             $this->sendBody($response);
@@ -61,14 +62,14 @@ final class ResponseEmitter implements ResponseEmitterInterface
 
     private function sendHeaders(ResponseInterface $response): void
     {
-        $headers = $response->getHeaders();
+        $status = $response->getStatusCode();
 
-        foreach ($headers as $name => $values) {
+        foreach ($response->getHeaders() as $name => $values) {
 
             $first = strtolower((string) $name) !== 'set-cookie';
 
             foreach ($values as $value) {
-                header("$name: $value", $first);
+                header("$name: $value", $first, $status);
                 $first = false;
             }
         }
@@ -103,7 +104,7 @@ final class ResponseEmitter implements ResponseEmitterInterface
     private function isResponseEmpty(ResponseInterface $response): bool
     {
         $statusCode = $response->getStatusCode();
-        if (in_array($statusCode, [204, 205, 304], true)) {
+        if ($statusCode < 200 || in_array($statusCode, [204, 205, 304], true)) {
             return true;
         }
 
