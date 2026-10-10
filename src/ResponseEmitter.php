@@ -21,8 +21,11 @@ use const CONNECTION_NORMAL;
 
 final class ResponseEmitter implements ResponseEmitterInterface
 {
+    /** bodies of a known size up to this limit are sent at once */
+    private const MAX_SINGLE_WRITE = 65536;
+
     public function __construct(
-        protected readonly int $chunkSize = 4096,
+        private readonly int $chunkSize = 4096,
     ) {}
 
     public function emit(ResponseInterface $response): void
@@ -47,7 +50,7 @@ final class ResponseEmitter implements ResponseEmitterInterface
         }
     }
 
-    protected function sendStatusLine(ResponseInterface $response): void
+    private function sendStatusLine(ResponseInterface $response): void
     {
         $protocol = $response->getProtocolVersion();
         $status = $response->getStatusCode();
@@ -56,7 +59,7 @@ final class ResponseEmitter implements ResponseEmitterInterface
         header("HTTP/$protocol $status $reason", true, $status);
     }
 
-    protected function sendHeaders(ResponseInterface $response): void
+    private function sendHeaders(ResponseInterface $response): void
     {
         $headers = $response->getHeaders();
 
@@ -71,13 +74,14 @@ final class ResponseEmitter implements ResponseEmitterInterface
         }
     }
 
-    protected function sendBody(ResponseInterface $response): void
+    private function sendBody(ResponseInterface $response): void
     {
         ob_implicit_flush();
 
         $stream = $response->getBody();
+        $size = $stream->getSize();
 
-        if ($this->chunkSize < 1) {
+        if ($this->chunkSize < 1 || ($size !== null && $size <= self::MAX_SINGLE_WRITE)) {
             echo (string) $stream;
             return;
         }
@@ -96,10 +100,10 @@ final class ResponseEmitter implements ResponseEmitterInterface
         }
     }
 
-    protected function isResponseEmpty(ResponseInterface $response): bool
+    private function isResponseEmpty(ResponseInterface $response): bool
     {
         $statusCode = $response->getStatusCode();
-        if (in_array($statusCode, [204, 205, 304])) {
+        if (in_array($statusCode, [204, 205, 304], true)) {
             return true;
         }
 

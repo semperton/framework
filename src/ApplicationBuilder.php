@@ -17,7 +17,6 @@ use Semperton\Framework\Interfaces\RouteCollectorInterface;
 use Semperton\Framework\Middleware\ErrorMiddleware;
 use Semperton\Framework\Middleware\RoutingMiddleware;
 use Semperton\Routing\Collection\RouteCollection;
-use Semperton\Routing\Matcher\RequestMatcherInterface;
 use Semperton\Routing\Matcher\RouteMatcher;
 
 use function is_string;
@@ -30,19 +29,32 @@ final class ApplicationBuilder implements RouteCollectorInterface
     /** @var list<MiddlewareInterface> */
     private array $groupMiddleware = [];
 
+    private string $pathPrefix = '';
+
+    private string $namePrefix = '';
+
     private bool $routing = false;
+
+    private bool $built = false;
+
+    private readonly RouteCollection $routeCollection;
+
+    private ?UrlGenerator $urlGenerator = null;
 
     public function __construct(
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly ?ContainerInterface $container = null,
-        private readonly RouteCollection $routeCollection = new RouteCollection(),
-    ) {}
+    ) {
+        $this->routeCollection = new RouteCollection();
+    }
 
     /**
      * The first middleware added is the outermost
      */
     public function add(MiddlewareInterface|string ...$middleware): static
     {
+        $this->assertNotBuilt();
+
         $this->middleware = [...$this->middleware, ...$this->resolveMiddleware($middleware)];
 
         return $this;
@@ -56,15 +68,44 @@ final class ApplicationBuilder implements RouteCollectorInterface
     /**
      * Optional, build() adds the routing as innermost middleware otherwise
      */
-    public function addRoutingMiddleware(?RequestMatcherInterface $requestMatcher = null): static
+    public function addRoutingMiddleware(): static
     {
+        $this->assertNotBuilt();
+
         $this->routing = true;
 
-        return $this->add(new RoutingMiddleware($requestMatcher ?? new RouteMatcher($this->routeCollection)));
+        return $this->add(new RoutingMiddleware(new RouteMatcher($this->routeCollection)));
     }
 
+    /**
+     * Validators MUST be added before the routes using them, e.g. '/blog/:slug:slug'
+     *
+     * @param callable(string): bool $validator receives the decoded path segment
+     */
+    public function addRouteValidator(string $id, callable $validator): static
+    {
+        $this->assertNotBuilt();
+
+        $this->routeCollection->setValidator($id, $validator);
+
+        return $this;
+    }
+
+    /**
+     * Builds the paths of named routes, also usable before build()
+     */
+    public function getUrlGenerator(): UrlGenerator
+    {
+        return $this->urlGenerator ??= new UrlGenerator($this->routeCollection);
+    }
+
+    /**
+     * Locks the builder
+     */
     public function build(): Application
     {
+        $this->built = true;
+
         $middleware = $this->middleware;
 
         if (!$this->routing) {
@@ -76,15 +117,22 @@ final class ApplicationBuilder implements RouteCollectorInterface
 
     public function group(string $path, Closure $callback, array $middleware = [], string $name = ''): static
     {
-        $current = $this->groupMiddleware;
-        $this->groupMiddleware = [...$current, ...$this->resolveMiddleware($middleware)];
+        $this->assertNotBuilt();
+
+        $currentMiddleware = $this->groupMiddleware;
+        $currentPath = $this->pathPrefix;
+        $currentName = $this->namePrefix;
+
+        $this->groupMiddleware = [...$currentMiddleware, ...$this->resolveMiddleware($middleware)];
+        $this->pathPrefix .= $path;
+        $this->namePrefix .= $name;
 
         try {
-            $this->routeCollection->group($path, function () use ($callback): void {
-                $callback($this);
-            }, $name);
+            $callback($this);
         } finally {
-            $this->groupMiddleware = $current;
+            $this->groupMiddleware = $currentMiddleware;
+            $this->pathPrefix = $currentPath;
+            $this->namePrefix = $currentName;
         }
 
         return $this;
@@ -97,10 +145,16 @@ final class ApplicationBuilder implements RouteCollectorInterface
         array $middleware = [],
         string $name = '',
     ): static {
+        $this->assertNotBuilt();
+
         $handler = is_string($handler) ? $this->lazy($handler) : $handler;
         $middleware = [...$this->groupMiddleware, ...$this->resolveMiddleware($middleware)];
 
-        $this->routeCollection->map($methods, $path, MiddlewareHandler::pipe($middleware, $handler), $name);
+        $path = $this->pathPrefix . $path;
+        $name = $name === '' ? '' : $this->namePrefix . $name;
+        $route = new Route($path, $name, MiddlewareHandler::pipe($middleware, $handler));
+
+        $this->routeCollection->map($methods, $path, $route, $name);
 
         return $this;
     }
@@ -148,6 +202,13 @@ final class ApplicationBuilder implements RouteCollectorInterface
         }
 
         return $resolved;
+    }
+
+    private function assertNotBuilt(): void
+    {
+        if ($this->built) {
+            throw new LogicException('The application is already built, configure the builder before calling build()');
+        }
     }
 
     private function lazy(string $id): LazyHandler

@@ -12,6 +12,7 @@ use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\AbstractLogger;
 use RuntimeException;
@@ -22,9 +23,9 @@ use Semperton\Framework\Handler\EndpointHandler;
 use Semperton\Framework\Handler\ErrorHandler;
 use Semperton\Framework\Interfaces\RouteCollectorInterface;
 use Semperton\Framework\Middleware\RequestBodyMiddleware;
+use Semperton\Framework\Route;
 use Semperton\Framework\Tests\Misc\TestHandler;
 use Semperton\Framework\Tests\Misc\TestMiddleware;
-use Semperton\Routing\Collection\RouteCollection;
 
 final class ApplicationTest extends TestCase
 {
@@ -40,9 +41,9 @@ final class ApplicationTest extends TestCase
         return (string) $response->getBody();
     }
 
-    private function builder(?ContainerInterface $container = null, ?RouteCollection $routes = null): ApplicationBuilder
+    private function builder(?ContainerInterface $container = null): ApplicationBuilder
     {
-        return new ApplicationBuilder($this->factory, $container, $routes ?? new RouteCollection());
+        return new ApplicationBuilder($this->factory, $container);
     }
 
     public function testRouteAndParams(): void
@@ -81,14 +82,28 @@ final class ApplicationTest extends TestCase
 
     public function testNamedRoutes(): void
     {
-        $routes = new RouteCollection();
         $handler = new TestHandler($this->factory);
+        $builder = $this->builder();
+        $urls = $builder->getUrlGenerator(); // available before the routes exist
 
-        $this->builder(null, $routes)->group('/blog', function (RouteCollectorInterface $blog) use ($handler) {
+        $builder->group('/blog', function (RouteCollectorInterface $blog) use ($handler) {
             $blog->get('/:id:d', $handler, name: 'article');
         }, name: 'blog.');
 
-        $this->assertSame('/blog/42', $routes->reverse('blog.article', ['id' => 42]));
+        $this->assertSame('/blog/42', $urls->path('blog.article', ['id' => 42]));
+        $this->assertSame($urls, $builder->getUrlGenerator());
+    }
+
+    public function testRouteValidator(): void
+    {
+        $app = $this->builder()
+            ->addErrorMiddleware()
+            ->addRouteValidator('slug', fn(string $value): bool => preg_match('/^[a-z0-9-]+$/', $value) === 1)
+            ->get('/blog/:name:slug', new TestHandler($this->factory))
+            ->build();
+
+        $this->assertSame('hello-world', $this->body($app->handle(new ServerRequest('GET', '/blog/hello-world'))));
+        $this->assertSame(404, $app->handle(new ServerRequest('GET', '/blog/Hello_World'))->getStatusCode());
     }
 
     public function testNotFoundAndMethodNotAllowed(): void
@@ -268,6 +283,80 @@ final class ApplicationTest extends TestCase
 
         $empty = new ServerRequest('POST', '/', ['Content-Type' => 'application/json']);
         $this->assertSame('null', $this->body($app->handle($empty)));
+
+        // e.g. laminas fromGlobals() passes an empty $_POST
+        $emptyPost = $json->withParsedBody([]);
+        $this->assertSame('{"a":1}', $this->body($app->handle($emptyPost)));
+    }
+
+    public function testRequestBodyKeepsOtherBodiesUnread(): void
+    {
+        $position = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                $response = (new Psr17Factory())->createResponse();
+                $response->getBody()->write((string) $request->getBody()->tell());
+                return $response;
+            }
+        };
+
+        $app = $this->builder()
+            ->add(new RequestBodyMiddleware())
+            ->post('/', $position)
+            ->build();
+
+        $binary = new ServerRequest('POST', '/', ['Content-Type' => 'application/octet-stream'], 'binary');
+        $this->assertSame('0', $this->body($app->handle($binary)));
+    }
+
+    public function testBuilderIsLockedAfterBuild(): void
+    {
+        $builder = $this->builder();
+        $builder->build();
+
+        $calls = [
+            fn() => $builder->get('/', new TestHandler($this->factory)),
+            fn() => $builder->add(new TestMiddleware('late')),
+            fn() => $builder->addRoutingMiddleware(),
+            fn() => $builder->addRouteValidator('id', fn(string $value): bool => true),
+            fn() => $builder->group('/api', fn() => null),
+        ];
+
+        foreach ($calls as $call) {
+            try {
+                $call();
+                $this->fail('Expected a LogicException');
+            } catch (LogicException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    public function testRouteMetadata(): void
+    {
+        $metadata = new class implements MiddlewareInterface {
+            public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+            {
+                $route = Route::fromRequest($request);
+
+                $response = $handler->handle($request);
+                $response->getBody()->write($route === null ? ' > none' : " > {$route->name} {$route->pattern}");
+                return $response;
+            }
+        };
+
+        $app = $this->builder()
+            ->addRoutingMiddleware()
+            ->add($metadata)
+            ->group('/blog', function (RouteCollectorInterface $blog) {
+                $blog->get('/:id:d', new TestHandler($this->factory), name: 'article');
+                $blog->get('/latest', new TestHandler($this->factory));
+            }, name: 'blog.')
+            ->build();
+
+        $this->assertSame('handler > blog.article /blog/:id:d', $this->body($app->handle(new ServerRequest('GET', '/blog/42'))));
+        $this->assertSame('handler >  /blog/latest', $this->body($app->handle(new ServerRequest('GET', '/blog/latest'))));
+        $this->assertNull(Route::fromRequest(new ServerRequest('GET', '/')));
     }
 
     public function testReuseAcrossRequests(): void

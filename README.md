@@ -45,22 +45,28 @@ Middleware runs in the order it was added, the first one is the outermost.
 Group and route middleware only runs for matched routes, after the global middleware.
 The built in `EndpointHandler` dispatches the matched route or throws a `404` / `405` exception (with an `Allow` header, `GET` routes include `HEAD`).
 
-Routing runs as the innermost global middleware by default. Call `addRoutingMiddleware()` to place it earlier, e.g. when a middleware needs the matched route (`$request->getAttribute(RoutingMiddleware::ATTRIBUTE)`), or to use a custom matcher.
+Routing runs as the innermost global middleware by default. Call `addRoutingMiddleware()` to place it earlier, e.g. when a middleware needs the matched route.
+Middleware after the routing can read the matched route, e.g. for logging, metrics or access control:
+```php
+use Semperton\Framework\Route;
+
+$route = Route::fromRequest($request); // null without a match
+$route?->name;    // 'admin.dashboard', empty if unnamed
+$route?->pattern; // '/admin/dashboard'
+```
 
 ### Routes
 
 Paths, placeholders, validators and wildcards are described in the [routing docs](https://github.com/semperton/routing).
-Pass your own `RouteCollection` to add validators or to build urls:
+Add custom validators before the routes using them:
 ```php
-use Semperton\Routing\Collection\RouteCollection;
-
-$routes = new RouteCollection();
-$routes->setValidator('slug', fn (string $value): bool => preg_match('/^[a-z0-9-]+$/', $value) === 1);
-
-$builder = new ApplicationBuilder($responseFactory, routeCollection: $routes);
+$builder->addRouteValidator('slug', fn (string $value): bool => preg_match('/^[a-z0-9-]+$/', $value) === 1);
 $builder->get('/blog/:slug:slug', $articleHandler, name: 'article');
-
-$routes->reverse('article', ['slug' => 'hello-world']); // '/blog/hello-world'
+```
+Build the paths of named routes with the `UrlGenerator`. It is available before `build()`, e.g. to register it in the container:
+```php
+$urls = $builder->getUrlGenerator();
+$urls->path('article', ['slug' => 'hello-world']); // '/blog/hello-world'
 ```
 
 ## Container
@@ -98,8 +104,8 @@ Implement the `ErrorHandlerInterface` for custom error responses.
 
 ## Request body
 
-The `RequestBodyMiddleware` parses non-empty `application/json` (and `+json` types like `application/merge-patch+json`) and `application/x-www-form-urlencoded` bodies, unless the request already has a parsed body.
-Invalid JSON results in a `400` response.
+The `RequestBodyMiddleware` parses non-empty `application/json` (and `+json` types like `application/merge-patch+json`) and `application/x-www-form-urlencoded` bodies, unless the request already has a non-empty parsed body.
+Invalid JSON results in a `400` response, other content types (e.g. uploads) are left unread.
 ```php
 $builder->add(new RequestBodyMiddleware());
 ```
@@ -124,5 +130,5 @@ use Semperton\Framework\ResponseEmitter;
 ```
 
 In long-running processes (FrankenPHP worker mode, RoadRunner, Workerman, Swoole ...), build the application once at boot and call `handle()` for every request.
-Routes added to the builder after `build()` still reach the application, so finish the configuration first.
+The builder is locked after `build()`. A `RouteCollection` passed to the builder is shared with the application, so don't add routes to it afterwards.
 `HEAD` requests are routed to `GET` handlers and return their body. PHP-FPM drops it automatically, in workers the server adapter must not send it.

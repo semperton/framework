@@ -11,6 +11,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Semperton\Framework\Exception\HttpMethodNotAllowedException;
 use Semperton\Framework\Exception\HttpNotFoundException;
 use Semperton\Framework\Middleware\RoutingMiddleware;
+use Semperton\Framework\Route;
 use Semperton\Routing\MatchResult;
 
 use function in_array;
@@ -29,9 +30,9 @@ final class EndpointHandler implements RequestHandlerInterface
         }
 
         if ($matchResult->isMatch()) {
-            /** @var RequestHandlerInterface */
-            $handler = $matchResult->getHandler();
-            return $handler->handle($request);
+            /** @var Route */
+            $route = $matchResult->getHandler();
+            return $route->handler->handle($request);
         }
 
         $methods = $matchResult->getMethods();

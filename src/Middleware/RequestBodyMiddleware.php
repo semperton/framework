@@ -22,13 +22,24 @@ use function trim;
 use const JSON_THROW_ON_ERROR;
 
 /**
- * Parses non-empty json (including +json types) and urlencoded bodies, unless the request already has a parsed body
+ * Parses non-empty json (including +json types) and urlencoded bodies, unless the request already has a non-empty parsed body
  */
 final class RequestBodyMiddleware implements MiddlewareInterface
 {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
-        if ($request->getParsedBody() !== null) {
+        $parsedBody = $request->getParsedBody();
+
+        // some request factories pass an empty $_POST for non-form requests
+        if ($parsedBody !== null && $parsedBody !== []) {
+            return $handler->handle($request);
+        }
+
+        $type = strtolower(trim(explode(';', $request->getHeaderLine('Content-Type'), 2)[0]));
+        $json = $type === 'application/json' || str_ends_with($type, '+json');
+
+        // other bodies (uploads, binary) stay unread for the handler
+        if (!$json && $type !== 'application/x-www-form-urlencoded') {
             return $handler->handle($request);
         }
 
@@ -38,9 +49,7 @@ final class RequestBodyMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
-        $type = strtolower(trim(explode(';', $request->getHeaderLine('Content-Type'), 2)[0]));
-
-        if ($type === 'application/json' || str_ends_with($type, '+json')) {
+        if ($json) {
             try {
                 /** @var array|scalar|null */
                 $data = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
@@ -49,7 +58,7 @@ final class RequestBodyMiddleware implements MiddlewareInterface
             }
             // scalar json values are no valid parsed body
             $request = $request->withParsedBody(is_array($data) ? $data : null);
-        } elseif ($type === 'application/x-www-form-urlencoded') {
+        } else {
             parse_str($body, $data);
             $request = $request->withParsedBody($data);
         }
