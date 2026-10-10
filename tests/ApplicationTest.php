@@ -346,6 +346,7 @@ final class ApplicationTest extends TestCase
             fn() => $builder->addRoutingMiddleware(),
             fn() => $builder->addRouteValidator('id', fn(string $value): bool => true),
             fn() => $builder->group('/api', fn() => null),
+            fn() => $builder->build(),
         ];
 
         foreach ($calls as $call) {
@@ -533,9 +534,14 @@ final class ApplicationTest extends TestCase
             ->any('/any', new TestHandler($this->factory, 'any'))
             ->build();
 
-        foreach (['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as $method) {
+        foreach (['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'] as $method) {
             $this->assertSame('any', $this->body($app->handle(new ServerRequest($method, '/any'))), $method);
         }
+
+        // preflights get the automatic answer, e.g. for cors
+        $response = $app->handle(new ServerRequest('OPTIONS', '/any'));
+        $this->assertSame(204, $response->getStatusCode());
+        $this->assertSame('GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS', $response->getHeaderLine('Allow'));
     }
 
     public function testBasePath(): void
@@ -638,6 +644,10 @@ final class ApplicationTest extends TestCase
         // no protocol-relative redirect to another host
         $uri = (new Uri('http://localhost'))->withPath('//evil.com/');
         $this->assertSame('/evil.com', $app->handle(new ServerRequest('GET', $uri))->getHeaderLine('Location'));
+
+        // browsers read '/\' as '//', the uri keeps the backslash percent-encoded
+        $uri = (new Uri('http://localhost'))->withPath('/\evil.com/');
+        $this->assertSame('/%5Cevil.com', $app->handle(new ServerRequest('GET', $uri))->getHeaderLine('Location'));
     }
 
     public function testTrailingSlashWithBasePath(): void

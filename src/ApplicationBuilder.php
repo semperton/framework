@@ -130,6 +130,7 @@ final class ApplicationBuilder implements RouteCollectorInterface
      */
     public function build(): Application
     {
+        $this->assertNotBuilt();
         $this->assertNotInGroup();
 
         $this->built = true;
@@ -190,11 +191,11 @@ final class ApplicationBuilder implements RouteCollectorInterface
     }
 
     /**
-     * Maps GET, POST, PUT, PATCH, DELETE and OPTIONS (HEAD falls back to GET)
+     * Maps GET, POST, PUT, PATCH and DELETE (HEAD falls back to GET, OPTIONS is answered automatically)
      */
     public function any(string $path, RequestHandlerInterface|string $handler, array $middleware = [], string $name = ''): static
     {
-        return $this->map(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], $path, $handler, $middleware, $name);
+        return $this->map(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], $path, $handler, $middleware, $name);
     }
 
     public function get(string $path, RequestHandlerInterface|string $handler, array $middleware = [], string $name = ''): static

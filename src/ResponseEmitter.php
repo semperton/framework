@@ -27,7 +27,7 @@ final class ResponseEmitter implements ResponseEmitterInterface
      * @param int $chunkSize bytes per write for large or unknown body sizes, 0 sends the body at once
      */
     public function __construct(
-        private readonly int $chunkSize = 4096,
+        private readonly int $chunkSize = 65536,
     ) {}
 
     public function emit(ResponseInterface $response): void

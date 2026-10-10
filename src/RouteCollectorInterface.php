@@ -32,7 +32,7 @@ interface RouteCollectorInterface
     ): static;
 
     /**
-     * Maps GET, POST, PUT, PATCH, DELETE and OPTIONS (HEAD falls back to GET)
+     * Maps GET, POST, PUT, PATCH and DELETE (HEAD falls back to GET, OPTIONS is answered automatically)
      *
      * @param list<MiddlewareInterface|string> $middleware
      */
