@@ -81,7 +81,22 @@ $builder->map(['GET', 'POST'], '/search', $searchHandler);
 Build the paths of named routes with the `UrlGenerator`. It is available before `build()`, e.g. to register it in the container:
 ```php
 $urls = $builder->getUrlGenerator();
-$urls->path('article', ['slug' => 'hello-world']); // '/blog/hello-world'
+$urls->path('article', ['slug' => 'hello-world']);              // '/blog/hello-world'
+$urls->path('article', ['slug' => 'hello-world'], ['page' => 2]); // '/blog/hello-world?page=2'
+
+// absolute, scheme, host and port are taken from the given uri
+$urls->url($request->getUri(), 'article', ['slug' => 'hello-world']); // 'https://example.com/blog/hello-world'
+```
+Behind a reverse proxy, pass a configured uri or correct the request uri with a trusted proxy middleware.
+
+### Trailing slashes
+
+Routes are matched exactly, `/users/` does not match `/users`. Add the `TrailingSlashMiddleware` before the routing to redirect to the path without trailing slash (`301`, or `308` to keep the method of non-`GET` requests).
+Pass `redirect: false` to rewrite the request path instead, e.g. for API clients that don't follow redirects:
+```php
+use Semperton\Framework\Middleware\TrailingSlashMiddleware;
+
+$builder->add(new TrailingSlashMiddleware($responseFactory));
 ```
 
 ### Base path
@@ -104,6 +119,8 @@ $builder = new ApplicationBuilder($responseFactory, $container);
 $builder->add(SessionMiddleware::class);
 $builder->get('/', IndexHandler::class, [CacheMiddleware::class]);
 ```
+Ids are not checked at build time, that would load every handler on each PHP-FPM request and not every container reports autowired entries in `has()`.
+Catch typos in a test instead, e.g. by requesting every route once.
 
 ## Error handling
 
@@ -122,12 +139,30 @@ throw new HttpNotFoundException('User not found');
 throw new HttpNotFoundException();
 // {"type":"about:blank","title":"Not Found","status":404}
 ```
-The messages of all other exceptions are never exposed, they result in a `500`. Extend `HttpException` for other status codes:
+The messages of all other exceptions are never exposed, they result in a `500`.
+
+| Exception | Status | Headers |
+|---|---|---|
+| `HttpBadRequestException` | 400 | |
+| `HttpUnauthorizedException($challenge)` | 401 | `WWW-Authenticate` |
+| `HttpForbiddenException` | 403 | |
+| `HttpNotFoundException` | 404 | |
+| `HttpMethodNotAllowedException($allowedMethods)` | 405 | `Allow` |
+| `HttpConflictException` | 409 | |
+| `HttpUnprocessableContentException` | 422 | |
+| `HttpTooManyRequestsException(?$retryAfter)` | 429 | `Retry-After` if given |
+| `HttpServiceUnavailableException(?$retryAfter)` | 503 | `Retry-After` if given |
+
 ```php
-final class HttpForbiddenException extends HttpException
+throw new HttpUnauthorizedException('Bearer realm="api"', 'Token expired');
+throw new HttpTooManyRequestsException(retryAfter: 60);
+```
+Extend `HttpException` for other status codes, override `getHeaders()` for status specific headers:
+```php
+final class HttpGoneException extends HttpException
 {
-    protected const STATUS_CODE = 403;
-    protected const REASON_PHRASE = 'Forbidden';
+    protected const STATUS_CODE = 410;
+    protected const REASON_PHRASE = 'Gone';
 }
 ```
 Implement the `ErrorHandlerInterface` for custom error responses.

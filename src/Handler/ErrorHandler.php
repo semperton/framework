@@ -9,12 +9,10 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Semperton\Framework\Exception\HttpException;
-use Semperton\Framework\Exception\HttpMethodNotAllowedException;
 use Semperton\Framework\Interfaces\ErrorHandlerInterface;
 use Throwable;
 
 use function explode;
-use function implode;
 use function json_encode;
 
 use const JSON_INVALID_UTF8_SUBSTITUTE;
@@ -52,12 +50,13 @@ final class ErrorHandler implements ErrorHandlerInterface
             $this->logger?->error($exception->getMessage(), ['exception' => $exception]);
         }
 
-        $response = $this->responseFactory->createResponse($statusCode)
-            ->withHeader('Content-Type', 'application/problem+json');
+        $response = $this->responseFactory->createResponse($statusCode);
 
-        if ($httpException instanceof HttpMethodNotAllowedException) {
-            $response = $response->withHeader('Allow', implode(', ', $httpException->getAllowedMethods()));
+        foreach ($httpException?->getHeaders() ?? [] as $name => $value) {
+            $response = $response->withHeader($name, $value);
         }
+
+        $response = $response->withHeader('Content-Type', 'application/problem+json');
 
         $title = $httpException?->getTitle() ?? $response->getReasonPhrase();
 

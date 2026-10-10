@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use LogicException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
+use Nyholm\Psr7\Uri;
 use OutOfBoundsException;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -22,10 +23,14 @@ use Semperton\Framework\Application;
 use Semperton\Framework\ApplicationBuilder;
 use Semperton\Framework\Exception\HttpException;
 use Semperton\Framework\Exception\HttpNotFoundException;
+use Semperton\Framework\Exception\HttpServiceUnavailableException;
+use Semperton\Framework\Exception\HttpTooManyRequestsException;
+use Semperton\Framework\Exception\HttpUnauthorizedException;
 use Semperton\Framework\Handler\EndpointHandler;
 use Semperton\Framework\Handler\ErrorHandler;
 use Semperton\Framework\Interfaces\RouteCollectorInterface;
 use Semperton\Framework\Middleware\RequestBodyMiddleware;
+use Semperton\Framework\Middleware\TrailingSlashMiddleware;
 use Semperton\Framework\RouteResult;
 use Semperton\Framework\Tests\Misc\TestHandler;
 use Semperton\Framework\Tests\Misc\TestMiddleware;
@@ -574,5 +579,87 @@ final class ApplicationTest extends TestCase
             $app = $builder->get('/', new TestHandler($this->factory))->build();
             $this->assertSame('handler', $this->body($app->handle(new ServerRequest('GET', '/'))));
         }
+    }
+
+    public function testExceptionHeaders(): void
+    {
+        $request = new ServerRequest('GET', '/');
+        $handler = new ErrorHandler($this->factory);
+
+        $response = $handler->handle($request, new HttpUnauthorizedException('Bearer realm="api"', 'Token expired'));
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame('Bearer realm="api"', $response->getHeaderLine('WWW-Authenticate'));
+        $this->assertSame('{"type":"about:blank","title":"Unauthorized","status":401,"detail":"Token expired"}', $this->body($response));
+
+        $response = $handler->handle($request, new HttpTooManyRequestsException(60));
+        $this->assertSame(429, $response->getStatusCode());
+        $this->assertSame('60', $response->getHeaderLine('Retry-After'));
+
+        $response = $handler->handle($request, new HttpServiceUnavailableException());
+        $this->assertSame(503, $response->getStatusCode());
+        $this->assertFalse($response->hasHeader('Retry-After'));
+        $this->assertSame('application/problem+json', $response->getHeaderLine('Content-Type'));
+    }
+
+    public function testUrlGeneration(): void
+    {
+        $builder = (new ApplicationBuilder($this->factory, basePath: '/app'))
+            ->get('/blog/:id:d', new TestHandler($this->factory), name: 'article');
+        $urls = $builder->getUrlGenerator();
+
+        $this->assertSame('/app/blog/42', $urls->path('article', ['id' => 42]));
+        $this->assertSame('/app/blog/42?q=a%20b&tags%5B0%5D=x', $urls->path('article', ['id' => 42], ['q' => 'a b', 'tags' => ['x']]));
+
+        $base = new Uri('https://example.com:8443/old?x=1#fragment');
+        $this->assertSame('https://example.com:8443/app/blog/42', $urls->url($base, 'article', ['id' => 42]));
+        $this->assertSame('https://example.com:8443/app/blog/42?page=2', $urls->url($base, 'article', ['id' => 42], ['page' => 2]));
+    }
+
+    public function testTrailingSlashRedirect(): void
+    {
+        $app = $this->builder()
+            ->addErrorMiddleware()
+            ->add(new TrailingSlashMiddleware($this->factory))
+            ->get('/', new TestHandler($this->factory, 'index'))
+            ->map(['GET', 'POST'], '/users', new TestHandler($this->factory, 'users'))
+            ->build();
+
+        $response = $app->handle(new ServerRequest('GET', '/users/?a=1'));
+        $this->assertSame(301, $response->getStatusCode());
+        $this->assertSame('/users?a=1', $response->getHeaderLine('Location'));
+
+        $response = $app->handle(new ServerRequest('POST', '/users/'));
+        $this->assertSame(308, $response->getStatusCode());
+        $this->assertSame('/users', $response->getHeaderLine('Location'));
+
+        $this->assertSame('index', $this->body($app->handle(new ServerRequest('GET', '/'))));
+        $this->assertSame('users', $this->body($app->handle(new ServerRequest('GET', '/users'))));
+
+        // no protocol-relative redirect to another host
+        $uri = (new Uri('http://localhost'))->withPath('//evil.com/');
+        $this->assertSame('/evil.com', $app->handle(new ServerRequest('GET', $uri))->getHeaderLine('Location'));
+    }
+
+    public function testTrailingSlashWithBasePath(): void
+    {
+        $app = (new ApplicationBuilder($this->factory, basePath: '/app'))
+            ->add(new TrailingSlashMiddleware($this->factory))
+            ->get('/users', new TestHandler($this->factory, 'users'))
+            ->build();
+
+        $this->assertSame('/app/users', $app->handle(new ServerRequest('GET', '/app/users/'))->getHeaderLine('Location'));
+        $this->assertSame('/app', $app->handle(new ServerRequest('GET', '/app/'))->getHeaderLine('Location'));
+    }
+
+    public function testTrailingSlashRewrite(): void
+    {
+        $app = $this->builder()
+            ->add(new TrailingSlashMiddleware($this->factory, redirect: false))
+            ->post('/users', new TestHandler($this->factory, 'users'))
+            ->build();
+
+        $response = $app->handle(new ServerRequest('POST', '/users/'));
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('users', $this->body($response));
     }
 }

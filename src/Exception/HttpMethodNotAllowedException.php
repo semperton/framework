@@ -6,6 +6,8 @@ namespace Semperton\Framework\Exception;
 
 use Throwable;
 
+use function implode;
+
 final class HttpMethodNotAllowedException extends HttpException
 {
     protected const STATUS_CODE = 405;
@@ -29,5 +31,10 @@ final class HttpMethodNotAllowedException extends HttpException
     public function getAllowedMethods(): array
     {
         return $this->allowedMethods;
+    }
+
+    public function getHeaders(): array
+    {
+        return ['Allow' => implode(', ', $this->allowedMethods)];
     }
 }

@@ -35,4 +35,14 @@ abstract class HttpException extends RuntimeException
     {
         return static::REASON_PHRASE;
     }
+
+    /**
+     * Headers required by the status code, e.g. 'Allow' for 405
+     *
+     * @return array<string, string>
+     */
+    public function getHeaders(): array
+    {
+        return [];
+    }
 }

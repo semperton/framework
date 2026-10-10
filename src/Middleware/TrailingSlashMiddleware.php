@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Semperton\Framework\Middleware;
+
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+use function str_ends_with;
+use function trim;
+
+/**
+ * Removes trailing slashes from request paths, routes are defined without them
+ * Redirects to the canonical path by default, or rewrites the request path
+ */
+final class TrailingSlashMiddleware implements MiddlewareInterface
+{
+    public function __construct(
+        private readonly ResponseFactoryInterface $responseFactory,
+        private readonly bool $redirect = true,
+    ) {}
+
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $uri = $request->getUri();
+        $path = $uri->getPath();
+
+        if ($path === '/' || !str_ends_with($path, '/')) {
+            return $handler->handle($request);
+        }
+
+        // leading slashes are collapsed too, '//host/' would redirect to another host otherwise
+        $path = '/' . trim($path, '/');
+
+        if (!$this->redirect) {
+            return $handler->handle($request->withUri($uri->withPath($path)));
+        }
+
+        $query = $uri->getQuery();
+        $method = $request->getMethod();
+
+        // 308 keeps the method and body of non-safe requests
+        $status = $method === 'GET' || $method === 'HEAD' ? 301 : 308;
+
+        return $this->responseFactory->createResponse($status)
+            ->withHeader('Location', $query === '' ? $path : "$path?$query");
+    }
+}
