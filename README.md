@@ -20,7 +20,7 @@ Framework requires PHP 8.2+ and any PSR-7 / PSR-17 implementation.
 ## Usage
 
 Configure the application with the `ApplicationBuilder` and `build()` it.
-Routes take PSR-15 request handlers, route params are added as request attributes:
+Routes take PSR-15 request handlers:
 ```php
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Semperton\Framework\ApplicationBuilder;
@@ -30,7 +30,7 @@ $builder = new ApplicationBuilder(new Psr17Factory());
 
 $builder->addErrorMiddleware();
 
-$builder->get('/users/:id:d', $userHandler); // $request->getAttribute('id')
+$builder->get('/users/:id:d', $userHandler);
 $builder->post('/users', $createHandler, [$authMiddleware]);
 
 $builder->group('/admin', function (RouteCollectorInterface $admin) use ($dashboardHandler) {
@@ -45,15 +45,24 @@ Middleware runs in the order it was added, the first one is the outermost.
 Group and route middleware only runs for matched routes, after the global middleware.
 The built in `EndpointHandler` dispatches the matched route or throws a `404` / `405` exception (with an `Allow` header, `GET` routes include `HEAD`).
 
-Routing runs as the innermost global middleware by default. Call `addRoutingMiddleware()` to place it earlier, e.g. when a middleware needs the matched route.
-Middleware after the routing can read the matched route, e.g. for logging, metrics or access control:
-```php
-use Semperton\Framework\Route;
+### Route params
 
-$route = Route::fromRequest($request); // null without a match
-$route?->name;    // 'admin.dashboard', empty if unnamed
-$route?->pattern; // '/admin/dashboard'
+The routing adds a `RouteResult` to the request, with the matched route and its decoded params:
+```php
+use Semperton\Framework\RouteResult;
+
+$result = RouteResult::fromRequest($request); // null before the routing
+
+$result->param('id');            // '42', null if missing
+$result->param('page', '1');     // with a default
+$result->params;                 // ['id' => '42']
+$result->route?->name;           // 'admin.dashboard', empty if unnamed, null without a match
+$result->route?->pattern;        // '/admin/dashboard'
+$result->allowedMethods;         // methods of the path if the method did not match, e.g. ['GET', 'HEAD']
 ```
+Params are kept in this single attribute, so they never collide with attributes of other middleware.
+
+Routing runs as the innermost global middleware by default. Call `addRoutingMiddleware()` to place it earlier, e.g. when a middleware needs the matched route for logging, metrics or access control.
 
 ### Routes
 
@@ -81,18 +90,22 @@ $builder->get('/', IndexHandler::class, [CacheMiddleware::class]);
 
 ## Error handling
 
-`addErrorMiddleware()` renders all exceptions as JSON. Add it first, so it catches the errors of all other middleware.
+`addErrorMiddleware()` renders all exceptions as [problem details](https://www.rfc-editor.org/rfc/rfc9457) (`application/problem+json`). Add it first, so it catches the errors of all other middleware.
 Details and traces are only exposed in debug mode, server errors (5xx) are passed to an optional PSR-3 logger:
 ```php
 use Semperton\Framework\Handler\ErrorHandler;
 
 $builder->addErrorMiddleware(new ErrorHandler($responseFactory, debug: true, logger: $logger));
 ```
-Throw an `HttpException` to respond with a specific status code. Its message is sent to the client, so never put internal details in it:
+Throw an `HttpException` to respond with a specific status code. Its message is sent to the client as `detail`, so never put internal details in it:
 ```php
-throw new HttpNotFoundException($request, 'User not found'); // {"status":404,"message":"User not found"}
+throw new HttpNotFoundException($request, 'User not found');
+// {"type":"about:blank","title":"Not Found","status":404,"detail":"User not found"}
+
+throw new HttpNotFoundException($request);
+// {"type":"about:blank","title":"Not Found","status":404}
 ```
-The messages of all other exceptions are never exposed. Extend `HttpException` for other status codes:
+The messages of all other exceptions are never exposed, they result in a `500`. Extend `HttpException` for other status codes:
 ```php
 final class HttpForbiddenException extends HttpException
 {
@@ -106,6 +119,7 @@ Implement the `ErrorHandlerInterface` for custom error responses.
 
 The `RequestBodyMiddleware` parses non-empty `application/json` (and `+json` types like `application/merge-patch+json`) and `application/x-www-form-urlencoded` bodies, unless the request already has a non-empty parsed body.
 Invalid JSON results in a `400` response, other content types (e.g. uploads) are left unread.
+The raw body stays readable, e.g. to verify webhook signatures.
 ```php
 $builder->add(new RequestBodyMiddleware());
 ```
@@ -130,5 +144,5 @@ use Semperton\Framework\ResponseEmitter;
 ```
 
 In long-running processes (FrankenPHP worker mode, RoadRunner, Workerman, Swoole ...), build the application once at boot and call `handle()` for every request.
-The builder is locked after `build()`. A `RouteCollection` passed to the builder is shared with the application, so don't add routes to it afterwards.
+The builder is locked after `build()`.
 `HEAD` requests are routed to `GET` handlers and return their body. PHP-FPM drops it automatically, in workers the server adapter must not send it.

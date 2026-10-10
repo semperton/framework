@@ -4,3 +4,5 @@
 /tests			export-ignore
 /psalm.xml		export-ignore
 /.php-cs-fixer.dist.php	export-ignore
+/.editorconfig		export-ignore
+/composer.lock		export-ignore

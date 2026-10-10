@@ -2,6 +2,14 @@
     "name": "semperton/framework",
     "description": "The Semperton Framework.",
     "type": "library",
+    "keywords": [
+        "framework",
+        "psr-7",
+        "psr-15",
+        "router",
+        "middleware",
+        "microframework"
+    ],
     "license": "MIT",
     "autoload": {
         "psr-4": {
