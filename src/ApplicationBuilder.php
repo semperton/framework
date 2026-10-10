@@ -11,12 +11,13 @@ use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Semperton\Framework\Handler\EndpointHandler;
-use Semperton\Framework\Handler\ErrorHandler;
-use Semperton\Framework\Interfaces\ErrorHandlerInterface;
-use Semperton\Framework\Interfaces\RouteCollectorInterface;
+use Semperton\Framework\Error\ErrorHandler;
+use Semperton\Framework\Error\ErrorHandlerInterface;
+use Semperton\Framework\Internal\EndpointHandler;
+use Semperton\Framework\Internal\LazyHandler;
+use Semperton\Framework\Internal\MiddlewareHandler;
+use Semperton\Framework\Internal\RoutingMiddleware;
 use Semperton\Framework\Middleware\ErrorMiddleware;
-use Semperton\Framework\Middleware\RoutingMiddleware;
 use Semperton\Routing\Collection\RouteCollection;
 use Semperton\Routing\Matcher\RouteMatcher;
 

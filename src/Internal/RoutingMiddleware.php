@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Semperton\Framework\Middleware;
+namespace Semperton\Framework\Internal;
 
 use LogicException;
 use Psr\Http\Message\ResponseInterface;

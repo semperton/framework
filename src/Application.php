@@ -8,6 +8,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Semperton\Framework\Internal\MiddlewareHandler;
 
 /**
  * Immutable application, build it once and reuse it for every request

@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Semperton\Framework\Handler;
+namespace Semperton\Framework\Error;
 
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Semperton\Framework\Exception\HttpException;
-use Semperton\Framework\Interfaces\ErrorHandlerInterface;
 use Throwable;
 
 use function explode;

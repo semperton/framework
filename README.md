@@ -24,7 +24,7 @@ Routes take PSR-15 request handlers:
 ```php
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Semperton\Framework\ApplicationBuilder;
-use Semperton\Framework\Interfaces\RouteCollectorInterface;
+use Semperton\Framework\RouteCollectorInterface;
 
 $builder = new ApplicationBuilder(new Psr17Factory());
 
@@ -127,7 +127,7 @@ Catch typos in a test instead, e.g. by requesting every route once.
 `addErrorMiddleware()` renders all exceptions as [problem details](https://www.rfc-editor.org/rfc/rfc9457) (`application/problem+json`). Add it first, so it catches the errors of all other middleware.
 Details and traces are only exposed in debug mode, server errors (5xx) are passed to an optional PSR-3 logger:
 ```php
-use Semperton\Framework\Handler\ErrorHandler;
+use Semperton\Framework\Error\ErrorHandler;
 
 $builder->addErrorMiddleware(new ErrorHandler($responseFactory, debug: true, logger: $logger));
 ```

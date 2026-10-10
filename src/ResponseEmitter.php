@@ -6,7 +6,6 @@ namespace Semperton\Framework;
 
 use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
-use Semperton\Framework\Interfaces\ResponseEmitterInterface;
 
 use function connection_status;
 use function header;

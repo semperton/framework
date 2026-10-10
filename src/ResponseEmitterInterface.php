@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Semperton\Framework\Interfaces;
+namespace Semperton\Framework;
 
 use Psr\Http\Message\ResponseInterface;
 

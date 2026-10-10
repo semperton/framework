@@ -25,7 +25,7 @@
         "sort-packages": true
     },
     "scripts": {
-        "test": "phpunit tests",
+        "test": "phpunit",
         "check": [
             "psalm --no-cache",
             "php-cs-fixer check"
