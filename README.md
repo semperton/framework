@@ -68,12 +68,13 @@ Routing runs as the innermost global middleware by default. Call `addRoutingMidd
 ### Routes
 
 Paths, placeholders, validators and wildcards are described in the [routing docs](https://github.com/semperton/routing).
+Params are decoded, wildcard params may contain `/` and `..`, so never use them as file paths unchecked.
 Add custom validators before the routes using them:
 ```php
 $builder->addRouteValidator('slug', fn (string $value): bool => preg_match('/^[a-z0-9-]+$/', $value) === 1);
 $builder->get('/blog/:slug:slug', $articleHandler, name: 'article');
 ```
-`any()` maps `GET`, `POST`, `PUT`, `PATCH`, `DELETE` and `OPTIONS`, `map()` takes a custom list:
+`any()` maps `GET`, `POST`, `PUT`, `PATCH` and `DELETE`, `map()` takes a custom list:
 ```php
 $builder->any('/rpc', $rpcHandler);
 $builder->map(['GET', 'POST'], '/search', $searchHandler);
@@ -175,6 +176,7 @@ The raw body stays readable, e.g. to verify webhook signatures.
 ```php
 $builder->add(new RequestBodyMiddleware());
 ```
+The body is read into memory. PHP-FPM limits its size with `post_max_size`, in workers limit it in the server instead (e.g. `request_body { max_size }` in Caddy / FrankenPHP, `http.max_request_size` in RoadRunner).
 
 ## CORS
 
@@ -221,6 +223,7 @@ Packages like [middlewares/cors](https://github.com/middlewares/cors) work as we
 composer test   # phpunit
 composer check  # psalm + php-cs-fixer (PER-CS)
 composer fix    # apply the code style
+composer bench  # phpbench, build and dispatch times
 ```
 
 ## Running
@@ -232,7 +235,14 @@ With PHP-FPM, emit the response with the `ResponseEmitter`:
 use Semperton\Framework\ResponseEmitter;
 
 (new ResponseEmitter())->emit($app->handle($request));
+
+// optional, sends the response to the client before the remaining work (logging, destructors ...)
+if (function_exists('fastcgi_finish_request')) {
+    fastcgi_finish_request();
+}
 ```
+The application is built on every PHP-FPM request, so enable OPcache (and preloading) and keep the route definitions free of other work.
+Building takes about 3 µs per route, see `composer bench`.
 
 In long-running processes (FrankenPHP worker mode, RoadRunner, Workerman, Swoole ...), build the application once at boot and call `handle()` for every request.
 The builder is locked after `build()`.

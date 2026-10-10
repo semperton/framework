@@ -11,6 +11,10 @@
         "microframework"
     ],
     "license": "MIT",
+    "support": {
+        "issues": "https://github.com/semperton/framework/issues",
+        "source": "https://github.com/semperton/framework"
+    },
     "autoload": {
         "psr-4": {
             "Semperton\\Framework\\": "src/"
@@ -18,7 +22,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Semperton\\Framework\\Tests\\": "tests/"
+            "Semperton\\Framework\\Tests\\": "tests/",
+            "Semperton\\Framework\\Benchmark\\": "benchmark/"
         }
     },
     "config": {
@@ -30,7 +35,8 @@
             "psalm --no-cache",
             "php-cs-fixer check"
         ],
-        "fix": "php-cs-fixer fix"
+        "fix": "php-cs-fixer fix",
+        "bench": "phpbench run --report=aggregate"
     },
     "require": {
         "php": "^8.2",
@@ -45,7 +51,12 @@
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.95",
         "nyholm/psr7": "^1.8",
+        "phpbench/phpbench": "^1.4",
         "phpunit/phpunit": "^11.5",
         "vimeo/psalm": "^6.0"
+    },
+    "suggest": {
+        "nyholm/psr7": "Fast PSR-7 / PSR-17 implementation",
+        "psr/container-implementation": "Resolves handlers and middleware by id"
     }
 }
