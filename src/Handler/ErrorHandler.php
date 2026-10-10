@@ -41,7 +41,7 @@ final class ErrorHandler implements ErrorHandlerInterface
 
         // invalid codes of custom http exceptions must not break the error response
         if ($exception instanceof HttpException) {
-            $code = $exception->getCode();
+            $code = $exception->getStatusCode();
             if ($code >= 400 && $code <= 599) {
                 $httpException = $exception;
                 $statusCode = $code;

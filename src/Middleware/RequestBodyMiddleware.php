@@ -60,7 +60,7 @@ final class RequestBodyMiddleware implements MiddlewareInterface
                 /** @var array|scalar|null */
                 $data = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
             } catch (JsonException $exception) {
-                throw new HttpBadRequestException($request, previous: $exception);
+                throw new HttpBadRequestException(previous: $exception);
             }
             // scalar json values are no valid parsed body
             $request = $request->withParsedBody(is_array($data) ? $data : null);

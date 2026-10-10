@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Semperton\Framework\Exception;
 
-use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 use Throwable;
 
@@ -19,17 +18,14 @@ abstract class HttpException extends RuntimeException
     /** @var string */
     protected const REASON_PHRASE = 'Internal Server Error';
 
-    public function __construct(
-        protected readonly ServerRequestInterface $request,
-        string $message = '',
-        ?Throwable $previous = null,
-    ) {
+    public function __construct(string $message = '', ?Throwable $previous = null)
+    {
         parent::__construct($message === '' ? static::REASON_PHRASE : $message, static::STATUS_CODE, $previous);
     }
 
-    public function getRequest(): ServerRequestInterface
+    public function getStatusCode(): int
     {
-        return $this->request;
+        return static::STATUS_CODE;
     }
 
     /**

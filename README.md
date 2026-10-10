@@ -43,7 +43,8 @@ $response = $app->handle($request);
 
 Middleware runs in the order it was added, the first one is the outermost.
 Group and route middleware only runs for matched routes, after the global middleware.
-The built in `EndpointHandler` dispatches the matched route or throws a `404` / `405` exception (with an `Allow` header, `GET` routes include `HEAD`).
+Unmatched requests result in a `404` / `405` exception (with an `Allow` header, `GET` routes include `HEAD`).
+`OPTIONS` requests are answered with a `204` and the `Allow` header, unless an `OPTIONS` route exists. These responses only pass the global middleware.
 
 ### Route params
 
@@ -58,7 +59,7 @@ $result->param('page', '1');     // with a default
 $result->params;                 // ['id' => '42']
 $result->route?->name;           // 'admin.dashboard', empty if unnamed, null without a match
 $result->route?->pattern;        // '/admin/dashboard'
-$result->allowedMethods;         // methods of the path if the method did not match, e.g. ['GET', 'HEAD']
+$result->allowedMethods;         // methods of the path if the method did not match, e.g. ['GET', 'HEAD', 'OPTIONS']
 ```
 Params are kept in this single attribute, so they never collide with attributes of other middleware.
 
@@ -72,10 +73,26 @@ Add custom validators before the routes using them:
 $builder->addRouteValidator('slug', fn (string $value): bool => preg_match('/^[a-z0-9-]+$/', $value) === 1);
 $builder->get('/blog/:slug:slug', $articleHandler, name: 'article');
 ```
+`any()` maps `GET`, `POST`, `PUT`, `PATCH`, `DELETE` and `OPTIONS`, `map()` takes a custom list:
+```php
+$builder->any('/rpc', $rpcHandler);
+$builder->map(['GET', 'POST'], '/search', $searchHandler);
+```
 Build the paths of named routes with the `UrlGenerator`. It is available before `build()`, e.g. to register it in the container:
 ```php
 $urls = $builder->getUrlGenerator();
 $urls->path('article', ['slug' => 'hello-world']); // '/blog/hello-world'
+```
+
+### Base path
+
+Serving the application from a sub-directory, set the base path as it appears in the url.
+Routes are defined without it, requests outside of it result in a `404` and the `UrlGenerator` includes it:
+```php
+$builder = new ApplicationBuilder($responseFactory, basePath: '/app'); // https://example.com/app
+
+$builder->get('/blog/:slug', $articleHandler, name: 'article');    // matches '/app/blog/hello-world'
+$builder->getUrlGenerator()->path('article', ['slug' => 'hello']); // '/app/blog/hello'
 ```
 
 ## Container
@@ -99,10 +116,10 @@ $builder->addErrorMiddleware(new ErrorHandler($responseFactory, debug: true, log
 ```
 Throw an `HttpException` to respond with a specific status code. Its message is sent to the client as `detail`, so never put internal details in it:
 ```php
-throw new HttpNotFoundException($request, 'User not found');
+throw new HttpNotFoundException('User not found');
 // {"type":"about:blank","title":"Not Found","status":404,"detail":"User not found"}
 
-throw new HttpNotFoundException($request);
+throw new HttpNotFoundException();
 // {"type":"about:blank","title":"Not Found","status":404}
 ```
 The messages of all other exceptions are never exposed, they result in a `500`. Extend `HttpException` for other status codes:
@@ -123,6 +140,45 @@ The raw body stays readable, e.g. to verify webhook signatures.
 ```php
 $builder->add(new RequestBodyMiddleware());
 ```
+
+## CORS
+
+CORS is a security policy of your application, so there is no built in middleware.
+Since `OPTIONS` requests are answered automatically, a global middleware only needs to add the headers.
+Add it first, so error responses get the headers too:
+```php
+final class CorsMiddleware implements MiddlewareInterface
+{
+    /** @param list<string> $origins */
+    public function __construct(private readonly array $origins) {}
+
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $response = $handler->handle($request)->withAddedHeader('Vary', 'Origin');
+        $origin = $request->getHeaderLine('Origin');
+
+        if (!in_array($origin, $this->origins, true)) {
+            return $response;
+        }
+
+        $response = $response->withHeader('Access-Control-Allow-Origin', $origin);
+
+        // preflight, answered with the allowed methods of the path
+        if ($request->getMethod() === 'OPTIONS' && $request->hasHeader('Access-Control-Request-Method')) {
+            $response = $response
+                ->withHeader('Access-Control-Allow-Methods', $response->getHeaderLine('Allow'))
+                ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                ->withHeader('Access-Control-Max-Age', '600');
+        }
+
+        return $response;
+    }
+}
+
+$builder->add(new CorsMiddleware(['https://example.com']));
+$builder->addErrorMiddleware();
+```
+Packages like [middlewares/cors](https://github.com/middlewares/cors) work as well.
 
 ## Development
 

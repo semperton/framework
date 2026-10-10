@@ -32,6 +32,13 @@ interface RouteCollectorInterface
     ): static;
 
     /**
+     * Maps GET, POST, PUT, PATCH, DELETE and OPTIONS (HEAD falls back to GET)
+     *
+     * @param list<MiddlewareInterface|string> $middleware
+     */
+    public function any(string $path, RequestHandlerInterface|string $handler, array $middleware = [], string $name = ''): static;
+
+    /**
      * @param list<MiddlewareInterface|string> $middleware
      */
     public function get(string $path, RequestHandlerInterface|string $handler, array $middleware = [], string $name = ''): static;

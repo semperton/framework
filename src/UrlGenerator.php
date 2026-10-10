@@ -16,13 +16,16 @@ final class UrlGenerator
      */
     public function __construct(
         private readonly RouteCollection $routeCollection,
+        private readonly string $basePath = '',
     ) {}
 
     /**
+     * The path including the base path
+     *
      * @param array<string, scalar> $params decoded values, they get percent-encoded
      */
     public function path(string $name, array $params = []): string
     {
-        return $this->routeCollection->reverse($name, $params);
+        return $this->basePath . $this->routeCollection->reverse($name, $params);
     }
 }

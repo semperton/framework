@@ -145,7 +145,7 @@ final class ApplicationTest extends TestCase
 
         $response = $app->handle(new ServerRequest('DELETE', '/item'));
         $this->assertSame(405, $response->getStatusCode());
-        $this->assertSame('GET, POST, HEAD', $response->getHeaderLine('Allow'));
+        $this->assertSame('GET, POST, HEAD, OPTIONS', $response->getHeaderLine('Allow'));
     }
 
     public function testMethodNotAllowedForGet(): void
@@ -157,7 +157,7 @@ final class ApplicationTest extends TestCase
 
         $response = $app->handle(new ServerRequest('GET', '/item'));
         $this->assertSame(405, $response->getStatusCode());
-        $this->assertSame('POST', $response->getHeaderLine('Allow'));
+        $this->assertSame('POST, OPTIONS', $response->getHeaderLine('Allow'));
     }
 
     public function testHeadFallsBackToGet(): void
@@ -173,7 +173,7 @@ final class ApplicationTest extends TestCase
     public function testMissingRoutingMiddleware(): void
     {
         $this->expectException(LogicException::class);
-        (new Application([], new EndpointHandler()))->handle(new ServerRequest('GET', '/'));
+        (new Application([], new EndpointHandler($this->factory)))->handle(new ServerRequest('GET', '/'));
     }
 
     public function testLazyResolution(): void
@@ -248,7 +248,7 @@ final class ApplicationTest extends TestCase
             public function handle(ServerRequestInterface $request): ResponseInterface
             {
                 if ($request->getUri()->getPath() === '/user') {
-                    throw new HttpNotFoundException($request, 'User not found');
+                    throw new HttpNotFoundException('User not found');
                 }
                 throw new RuntimeException('Secret internal error');
             }
@@ -429,7 +429,7 @@ final class ApplicationTest extends TestCase
 
         $app->handle(new ServerRequest('DELETE', '/item/1'));
         $this->assertNull($spy->result?->route);
-        $this->assertSame(['GET', 'POST', 'HEAD'], $spy->result?->allowedMethods);
+        $this->assertSame(['GET', 'POST', 'HEAD', 'OPTIONS'], $spy->result?->allowedMethods);
 
         $app->handle(new ServerRequest('GET', '/missing'));
         $this->assertNull($spy->result?->route);
@@ -445,7 +445,7 @@ final class ApplicationTest extends TestCase
     public function testErrorHandlerInvalidStatusCode(): void
     {
         $request = new ServerRequest('GET', '/');
-        $exception = new class ($request, 'Not for the client') extends HttpException {
+        $exception = new class ('Not for the client') extends HttpException {
             protected const STATUS_CODE = 200;
             protected const REASON_PHRASE = 'OK';
         };
@@ -494,6 +494,85 @@ final class ApplicationTest extends TestCase
             } catch (OutOfBoundsException|InvalidArgumentException $exception) {
                 $this->assertStringStartsWith($exception::class, $class);
             }
+        }
+    }
+
+    public function testOptions(): void
+    {
+        $app = $this->builder()
+            ->addErrorMiddleware()
+            ->add(new TestMiddleware('global'))
+            ->group('/api', function (RouteCollectorInterface $api) {
+                $api->map(['GET', 'POST'], '/items', new TestHandler($this->factory), [new TestMiddleware('route')]);
+                $api->options('/custom', new TestHandler($this->factory, 'custom'));
+            }, [new TestMiddleware('group')])
+            ->build();
+
+        // answered without route and group middleware, global middleware (e.g. cors) still runs
+        $response = $app->handle(new ServerRequest('OPTIONS', '/api/items'));
+        $this->assertSame(204, $response->getStatusCode());
+        $this->assertSame('GET, POST, HEAD, OPTIONS', $response->getHeaderLine('Allow'));
+        $this->assertSame(' > global', $this->body($response));
+
+        // an OPTIONS route takes precedence
+        $response = $app->handle(new ServerRequest('OPTIONS', '/api/custom'));
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('custom > group > global', $this->body($response));
+
+        $this->assertSame(404, $app->handle(new ServerRequest('OPTIONS', '/api/missing'))->getStatusCode());
+    }
+
+    public function testAny(): void
+    {
+        $app = $this->builder()
+            ->any('/any', new TestHandler($this->factory, 'any'))
+            ->build();
+
+        foreach (['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as $method) {
+            $this->assertSame('any', $this->body($app->handle(new ServerRequest($method, '/any'))), $method);
+        }
+    }
+
+    public function testBasePath(): void
+    {
+        $builder = new ApplicationBuilder($this->factory, basePath: '/app/');
+        $app = $builder
+            ->addErrorMiddleware()
+            ->get('/', new TestHandler($this->factory, 'index'))
+            ->get('/hello/:name', new TestHandler($this->factory), name: 'hello')
+            ->build();
+
+        $this->assertSame('index', $this->body($app->handle(new ServerRequest('GET', '/app'))));
+        $this->assertSame('index', $this->body($app->handle(new ServerRequest('GET', '/app/'))));
+        $this->assertSame('world', $this->body($app->handle(new ServerRequest('GET', '/app/hello/world'))));
+
+        foreach (['/', '/hello/world', '/application', ''] as $path) {
+            $this->assertSame(404, $app->handle(new ServerRequest('GET', $path))->getStatusCode(), $path);
+        }
+
+        $this->assertSame('/app/hello/world', $builder->getUrlGenerator()->path('hello', ['name' => 'world']));
+    }
+
+    public function testInvalidBasePath(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new ApplicationBuilder($this->factory, basePath: 'app');
+    }
+
+    public function testGlobalMiddlewareInsideGroup(): void
+    {
+        $builder = $this->builder();
+
+        try {
+            $builder->group('/api', function (RouteCollectorInterface $api) {
+                /** @var ApplicationBuilder $api */
+                $api->add(new TestMiddleware('global'));
+            });
+            $this->fail('Expected a LogicException');
+        } catch (LogicException) {
+            // the group state is reset, the builder stays usable
+            $app = $builder->get('/', new TestHandler($this->factory))->build();
+            $this->assertSame('handler', $this->body($app->handle(new ServerRequest('GET', '/'))));
         }
     }
 }

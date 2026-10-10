@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Semperton\Framework\Exception;
 
-use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 
 final class HttpMethodNotAllowedException extends HttpException
@@ -17,12 +16,11 @@ final class HttpMethodNotAllowedException extends HttpException
      * @param list<string> $allowedMethods
      */
     public function __construct(
-        ServerRequestInterface $request,
         private readonly array $allowedMethods,
         string $message = '',
         ?Throwable $previous = null,
     ) {
-        parent::__construct($request, $message, $previous);
+        parent::__construct($message, $previous);
     }
 
     /**

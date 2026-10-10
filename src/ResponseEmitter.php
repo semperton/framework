@@ -24,6 +24,9 @@ final class ResponseEmitter implements ResponseEmitterInterface
     /** bodies of a known size up to this limit are sent at once */
     private const MAX_SINGLE_WRITE = 65536;
 
+    /**
+     * @param int $chunkSize bytes per write for large or unknown body sizes, 0 sends the body at once
+     */
     public function __construct(
         private readonly int $chunkSize = 4096,
     ) {}
@@ -66,11 +69,12 @@ final class ResponseEmitter implements ResponseEmitterInterface
 
         foreach ($response->getHeaders() as $name => $values) {
 
-            $first = strtolower((string) $name) !== 'set-cookie';
+            // multiple cookies must not replace each other
+            $replace = strtolower((string) $name) !== 'set-cookie';
 
             foreach ($values as $value) {
-                header("$name: $value", $first, $status);
-                $first = false;
+                header("$name: $value", $replace, $status);
+                $replace = false;
             }
         }
     }

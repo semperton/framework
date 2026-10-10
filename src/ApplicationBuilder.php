@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Semperton\Framework;
 
 use Closure;
+use InvalidArgumentException;
 use LogicException;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -20,11 +21,27 @@ use Semperton\Routing\Collection\RouteCollection;
 use Semperton\Routing\Matcher\RouteMatcher;
 
 use function is_string;
+use function rtrim;
+use function str_starts_with;
 
 final class ApplicationBuilder implements RouteCollectorInterface
 {
+    private readonly string $basePath;
+
+    private readonly RouteCollection $routeCollection;
+
+    private ?UrlGenerator $urlGenerator = null;
+
     /** @var list<MiddlewareInterface> */
     private array $middleware = [];
+
+    private bool $routing = false;
+
+    private bool $built = false;
+
+    // state of the current group() callback
+
+    private int $groupDepth = 0;
 
     /** @var list<MiddlewareInterface> */
     private array $groupMiddleware = [];
@@ -33,27 +50,31 @@ final class ApplicationBuilder implements RouteCollectorInterface
 
     private string $namePrefix = '';
 
-    private bool $routing = false;
-
-    private bool $built = false;
-
-    private readonly RouteCollection $routeCollection;
-
-    private ?UrlGenerator $urlGenerator = null;
-
+    /**
+     * @param string $basePath path prefix of all routes as it appears in the url, e.g. '/app' for sub-directory installs
+     */
     public function __construct(
         private readonly ResponseFactoryInterface $responseFactory,
         private readonly ?ContainerInterface $container = null,
+        string $basePath = '',
     ) {
+        $basePath = rtrim($basePath, '/');
+
+        if ($basePath !== '' && !str_starts_with($basePath, '/')) {
+            throw new InvalidArgumentException("The base path < $basePath > must start with a slash");
+        }
+
+        $this->basePath = $basePath;
         $this->routeCollection = new RouteCollection();
     }
 
     /**
-     * The first middleware added is the outermost
+     * Adds global middleware, the first one added is the outermost
      */
     public function add(MiddlewareInterface|string ...$middleware): static
     {
         $this->assertNotBuilt();
+        $this->assertNotInGroup();
 
         $this->middleware = [...$this->middleware, ...$this->resolveMiddleware($middleware)];
 
@@ -78,7 +99,7 @@ final class ApplicationBuilder implements RouteCollectorInterface
 
         $this->routing = true;
 
-        return $this->add(new RoutingMiddleware(new RouteMatcher($this->routeCollection)));
+        return $this->add($this->routingMiddleware());
     }
 
     /**
@@ -100,7 +121,7 @@ final class ApplicationBuilder implements RouteCollectorInterface
      */
     public function getUrlGenerator(): UrlGenerator
     {
-        return $this->urlGenerator ??= new UrlGenerator($this->routeCollection);
+        return $this->urlGenerator ??= new UrlGenerator($this->routeCollection, $this->basePath);
     }
 
     /**
@@ -108,15 +129,17 @@ final class ApplicationBuilder implements RouteCollectorInterface
      */
     public function build(): Application
     {
+        $this->assertNotInGroup();
+
         $this->built = true;
 
         $middleware = $this->middleware;
 
         if (!$this->routing) {
-            $middleware[] = new RoutingMiddleware(new RouteMatcher($this->routeCollection));
+            $middleware[] = $this->routingMiddleware();
         }
 
-        return new Application($middleware, new EndpointHandler());
+        return new Application($middleware, new EndpointHandler($this->responseFactory));
     }
 
     public function group(string $path, Closure $callback, array $middleware = [], string $name = ''): static
@@ -130,10 +153,12 @@ final class ApplicationBuilder implements RouteCollectorInterface
         $this->groupMiddleware = [...$currentMiddleware, ...$this->resolveMiddleware($middleware)];
         $this->pathPrefix .= $path;
         $this->namePrefix .= $name;
+        $this->groupDepth++;
 
         try {
             $callback($this);
         } finally {
+            $this->groupDepth--;
             $this->groupMiddleware = $currentMiddleware;
             $this->pathPrefix = $currentPath;
             $this->namePrefix = $currentName;
@@ -161,6 +186,14 @@ final class ApplicationBuilder implements RouteCollectorInterface
         $this->routeCollection->map($methods, $path, $route, $name);
 
         return $this;
+    }
+
+    /**
+     * Maps GET, POST, PUT, PATCH, DELETE and OPTIONS (HEAD falls back to GET)
+     */
+    public function any(string $path, RequestHandlerInterface|string $handler, array $middleware = [], string $name = ''): static
+    {
+        return $this->map(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], $path, $handler, $middleware, $name);
     }
 
     public function get(string $path, RequestHandlerInterface|string $handler, array $middleware = [], string $name = ''): static
@@ -208,10 +241,22 @@ final class ApplicationBuilder implements RouteCollectorInterface
         return $resolved;
     }
 
+    private function routingMiddleware(): RoutingMiddleware
+    {
+        return new RoutingMiddleware(new RouteMatcher($this->routeCollection), $this->basePath);
+    }
+
     private function assertNotBuilt(): void
     {
         if ($this->built) {
             throw new LogicException('The application is already built, configure the builder before calling build()');
+        }
+    }
+
+    private function assertNotInGroup(): void
+    {
+        if ($this->groupDepth > 0) {
+            throw new LogicException('Global middleware cannot be added inside a group, pass it to group() instead');
         }
     }
 
