@@ -17,7 +17,7 @@ jobs:
             dependencies: 'lowest'
     name: PHP ${{ matrix.php }} (${{ matrix.dependencies }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -30,10 +30,12 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           coverage: none
       - uses: ramsey/composer-install@v3
+      - run: composer validate --strict
+      - run: composer audit
       - run: composer check
