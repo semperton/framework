@@ -10,7 +10,14 @@
         "middleware",
         "microframework"
     ],
+    "homepage": "https://github.com/semperton/framework",
     "license": "MIT",
+    "authors": [
+        {
+            "name": "Johannes Rabausch",
+            "email": "mail@jrabausch.de"
+        }
+    ],
     "support": {
         "issues": "https://github.com/semperton/framework/issues",
         "source": "https://github.com/semperton/framework"
@@ -52,7 +59,7 @@
         "friendsofphp/php-cs-fixer": "^3.95",
         "nyholm/psr7": "^1.8",
         "phpbench/phpbench": "^1.4",
-        "phpunit/phpunit": "^11.5",
+        "phpunit/phpunit": "^11.5 || ^12.5 || ^13.4",
         "vimeo/psalm": "^6.0"
     },
     "suggest": {

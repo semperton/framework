@@ -193,6 +193,9 @@ $clientIp = $request->getAttribute(ProxyMiddleware::CLIENT_IP);
 ```
 The client ip is the last address of `X-Forwarded-For` that was not added by a trusted proxy, earlier ones can be forged by the client.
 Requests from other addresses keep `REMOTE_ADDR` as client ip, and their scheme is taken from the `HTTPS` server param, so forged headers are ignored.
+The scheme is the `X-Forwarded-Proto` entry of the client, if every proxy appends to both headers, otherwise the last entry, set by the nearest proxy.
+IPv4 clients of dual-stack sockets (e.g. `::ffff:10.0.0.1`) match IPv4 ranges, the client ip is always in canonical form.
+`Forwarded` (RFC 7239), `X-Forwarded-Host` and `X-Forwarded-Port` are not used, configure the proxy to keep the `Host` header.
 
 ## CORS
 
