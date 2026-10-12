@@ -50,6 +50,8 @@ final class PropertyTest extends TestCase
     private const FORWARDED_ADDRESSES = ['198.51.100.1', '10.0.0.3', '::ffff:198.51.100.2', '2001:db8::3', 'unknown', '1.2.3.4:80', '[2001:db8::2]', ' ', ''];
     private const PROTOS = ['http', 'https', 'HTTPS', 'ftp', ''];
 
+    private const HOST = ['example.com', '[::1]', '[', ']', ':', ':', '0', '1', '8', '9', '65535', '65536', ' ', ',', '%', '@', '.', "\t"];
+
     private const CONTENT_TYPES = ['application/json', 'application/merge-patch+json', 'APPLICATION/JSON; charset=utf-8', 'application/x-www-form-urlencoded', 'text/plain', ''];
     private const BODY = ['{', '}', '[', ']', '[[[[[[[[', '"', ':', ',', '1', '1e999', 'a', '=', '&', '%', '%zz', ' ', "\0", "\xff", 'true', 'null'];
 
@@ -117,6 +119,19 @@ final class PropertyTest extends TestCase
                 $candidates[] = self::canonical(trim($address));
             }
             self::assertContains($clientIp, $candidates);
+        });
+    }
+
+    public function testHostHeadersOfTrustedProxiesKeepAValidPort(): void
+    {
+        $this->forAll(self::text(self::HOST))->then(function (string $host): void {
+            $request = new ServerRequest('GET', 'http://localhost:8080/', ['Host' => $host], null, '1.1', ['REMOTE_ADDR' => '10.0.0.1']);
+            $handler = self::handler();
+
+            (new ProxyMiddleware(['10.0.0.0/8']))->process($request, $handler);
+
+            $port = $handler->request?->getUri()->getPort();
+            self::assertTrue($port === null || ($port >= 1 && $port <= 65535), $host);
         });
     }
 

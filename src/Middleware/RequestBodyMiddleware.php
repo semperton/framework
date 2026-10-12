@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Semperton\Framework\Middleware;
 
+use ErrorException;
 use JsonException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -15,10 +16,13 @@ use function explode;
 use function is_array;
 use function json_decode;
 use function parse_str;
+use function restore_error_handler;
+use function set_error_handler;
 use function str_ends_with;
 use function strtolower;
 use function trim;
 
+use const E_WARNING;
 use const JSON_THROW_ON_ERROR;
 
 /**
@@ -65,7 +69,15 @@ final class RequestBodyMiddleware implements MiddlewareInterface
             // scalar json values are no valid parsed body
             $request = $request->withParsedBody(is_array($data) ? $data : null);
         } else {
-            parse_str($body, $data);
+            // parse_str drops input above max_input_vars or max_input_nesting_level with a warning
+            set_error_handler(static function (int $level, string $message): never {
+                throw new HttpBadRequestException(previous: new ErrorException($message, 0, $level));
+            }, E_WARNING);
+            try {
+                parse_str($body, $data);
+            } finally {
+                restore_error_handler();
+            }
             $request = $request->withParsedBody($data);
         }
 

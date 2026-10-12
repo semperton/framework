@@ -1,6 +1,6 @@
 {
     "name": "semperton/framework",
-    "description": "The Semperton Framework.",
+    "description": "A small PSR-15 framework built on semperton/routing.",
     "type": "library",
     "keywords": [
         "framework",
@@ -34,6 +34,9 @@
         }
     },
     "config": {
+        "audit": {
+            "abandoned": "report"
+        },
         "sort-packages": true
     },
     "scripts": {

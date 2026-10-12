@@ -39,6 +39,7 @@ final class UrlGenerator
 
     /**
      * The absolute url, scheme, host and port are taken from the base uri, e.g. $request->getUri()
+     * User info and fragment of the base uri are removed
      *
      * @param array<string, scalar> $params decoded values, they get percent-encoded
      * @param array<array-key, mixed> $query decoded values, they get percent-encoded
@@ -48,7 +49,8 @@ final class UrlGenerator
         return (string) $baseUri
             ->withPath($this->routePath($name, $params))
             ->withQuery($query === [] ? '' : $this->queryString($query))
-            ->withFragment('');
+            ->withFragment('')
+            ->withUserInfo('');
     }
 
     /**

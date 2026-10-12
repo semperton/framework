@@ -18,7 +18,9 @@ use function in_array;
 use function inet_ntop;
 use function inet_pton;
 use function intdiv;
+use function ltrim;
 use function ord;
+use function preg_match;
 use function str_starts_with;
 use function strlen;
 use function strtolower;
@@ -31,6 +33,7 @@ use const FILTER_VALIDATE_IP;
 /**
  * Adds the client ip as request attribute and sets the scheme of the uri
  * X-Forwarded-For and X-Forwarded-Proto are only used if the request comes from a trusted proxy
+ * The port of the uri is taken from the Host header of trusted proxies, some request factories set the one of the proxy connection
  * Forwarded (rfc 7239), X-Forwarded-Host and -Port are not used, proxies are expected to keep the Host header
  */
 final class ProxyMiddleware implements MiddlewareInterface
@@ -74,6 +77,8 @@ final class ProxyMiddleware implements MiddlewareInterface
         $remoteAddress = (string) ($server['REMOTE_ADDR'] ?? '');
         $address = self::peer($remoteAddress);
         $https = !in_array($server['HTTPS'] ?? '', ['', 'off'], true);
+        $uri = $request->getUri();
+        $port = $uri->getPort();
 
         if ($address !== null && $this->trusted($address)) {
             $forwardedFor = $this->list($request, 'X-Forwarded-For');
@@ -104,13 +109,20 @@ final class ProxyMiddleware implements MiddlewareInterface
                     : $forwardedProto[count($forwardedProto) - 1];
                 $https = strtolower($proto) === 'https';
             }
+
+            // some request factories take the port from SERVER_PORT, e.g. 8080 of the proxy connection
+            // more than one Host header is invalid (rfc 9112 3.2)
+            $host = $request->getHeader('Host');
+            $hostPort = count($host) === 1 ? self::port($host[0]) : false;
+            if ($hostPort !== false) {
+                $port = $hostPort;
+            }
         }
 
         // also replaces a scheme from a forged header, e.g. set by nyholm/psr7-server
         $scheme = $https ? 'https' : 'http';
-        $uri = $request->getUri();
-        if ($uri->getScheme() !== $scheme) {
-            $request = $request->withUri($uri->withScheme($scheme), true);
+        if ($uri->getScheme() !== $scheme || $uri->getPort() !== $port) {
+            $request = $request->withUri($uri->withScheme($scheme)->withPort($port), true);
         }
 
         // in canonical form, e.g. '10.0.0.1' for '::ffff:10.0.0.1'
@@ -154,6 +166,25 @@ final class ProxyMiddleware implements MiddlewareInterface
         $line = $request->getHeaderLine($header);
 
         return $line === '' ? [] : array_map(trim(...), explode(',', $line));
+    }
+
+    /**
+     * Port of a Host header (rfc 9110 7.2, rfc 3986 3.2.2), null for the default port, false if it is invalid
+     * e.g. 8080 for 'example.com:8080' or '[::1]:8080', null for 'example.com'
+     */
+    private static function port(string $host): int|false|null
+    {
+        // ip-literal or reg-name (unreserved, pct-encoded, sub-delims), only ip-literals contain colons
+        if (preg_match('~^(?:\[[^\[\]\s]+\]|[A-Za-z0-9\-._\~%!$&\'()*+,;=]+)(?::(\d*))?$~D', $host, $matches) !== 1) {
+            return false;
+        }
+
+        if (($matches[1] ?? '') === '') {
+            return null;
+        }
+
+        // port = *DIGIT allows leading zeros, withPort() throws for invalid ports and the header is untrusted
+        return filter_var(ltrim($matches[1], '0'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
     }
 
     /**

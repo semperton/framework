@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Semperton\Framework\Error;
 
+use InvalidArgumentException;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -51,8 +52,17 @@ final class ErrorHandler implements ErrorHandlerInterface
 
         $response = $this->responseFactory->createResponse($statusCode);
 
-        foreach ($httpException?->getHeaders() ?? [] as $name => $value) {
-            $response = $response->withHeader($name, $value);
+        // invalid headers of custom http exceptions must not break the error response either
+        try {
+            $withHeaders = $response;
+            foreach ($httpException?->getHeaders() ?? [] as $name => $value) {
+                $withHeaders = $withHeaders->withHeader($name, $value);
+            }
+            $response = $withHeaders;
+        } catch (InvalidArgumentException $headerException) {
+            $this->logger?->error('Invalid headers of < ' . $exception::class . ' >, the response is sent without them', [
+                'exception' => $headerException,
+            ]);
         }
 
         $response = $response->withHeader('Content-Type', 'application/problem+json');

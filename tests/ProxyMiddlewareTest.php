@@ -90,6 +90,46 @@ final class ProxyMiddlewareTest extends TestCase
         self::assertSame($scheme, $request->getUri()->getScheme());
     }
 
+    #[TestWith(['example.com', null])] // the port of the proxy connection is not the one of the client
+    #[TestWith(['example.com:', null])] // empty is the default port (rfc 3986 3.2.3)
+    #[TestWith(['example.com:443', null])]
+    #[TestWith(['example.com:8443', 8443])]
+    #[TestWith(['example.com:08443', 8443])]
+    #[TestWith(['[::1]:8443', 8443])]
+    #[TestWith(['[::1]', null])]
+    #[TestWith(['example.com:99999', 8080])] // invalid headers keep the port
+    #[TestWith(['example.com:0', 8080])]
+    #[TestWith(['a:b:c', 8080])]
+    #[TestWith(['[::1]8443', 8080])]
+    #[TestWith(['a.com, b.com:8443', 8080])]
+    public function testHostPort(string $host, ?int $port): void
+    {
+        $request = $this->process(['10.0.0.1'], '10.0.0.1', 'http://example.com:8080/', [
+            'Host' => $host,
+            'X-Forwarded-Proto' => 'https',
+        ]);
+
+        self::assertSame('https', $request->getUri()->getScheme());
+        self::assertSame($port, $request->getUri()->getPort());
+        self::assertSame($host, $request->getHeaderLine('Host'));
+    }
+
+    public function testMultipleHostHeadersKeepThePort(): void
+    {
+        $request = $this->process(['10.0.0.1'], '10.0.0.1', 'http://example.com:8080/', [
+            'Host' => ['example.com', 'example.com:8443'],
+        ]);
+
+        self::assertSame(8080, $request->getUri()->getPort());
+    }
+
+    public function testUntrustedPeerKeepsThePort(): void
+    {
+        $request = $this->process([], '192.0.2.1', 'http://example.com:8080/', ['Host' => 'example.com']);
+
+        self::assertSame(8080, $request->getUri()->getPort());
+    }
+
     #[TestWith(['192.168.0.0/23', '192.168.1.255', true])]
     #[TestWith(['192.168.0.0/23', '192.168.2.1', false])]
     #[TestWith(['0.0.0.0/0', '203.0.113.1', true])]
@@ -121,7 +161,7 @@ final class ProxyMiddlewareTest extends TestCase
 
     /**
      * @param list<string> $trustedProxies
-     * @param array<string, string> $headers
+     * @param array<string, string|list<string>> $headers
      * @param array<string, string> $serverParams
      */
     private function process(

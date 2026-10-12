@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Semperton\Framework\Tests;
 
+use ErrorException;
 use InvalidArgumentException;
 use LogicException;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -22,6 +23,7 @@ use RuntimeException;
 use Semperton\Framework\Application;
 use Semperton\Framework\ApplicationBuilder;
 use Semperton\Framework\Error\ErrorHandler;
+use Semperton\Framework\Exception\HttpBadRequestException;
 use Semperton\Framework\Exception\HttpException;
 use Semperton\Framework\Exception\HttpNotFoundException;
 use Semperton\Framework\Exception\HttpServiceUnavailableException;
@@ -169,11 +171,15 @@ final class ApplicationTest extends TestCase
     public function testHeadFallsBackToGet(): void
     {
         $app = $this->builder()
+            ->addErrorMiddleware()
             ->addRoutingMiddleware()
             ->get('/', new TestHandler($this->factory))
             ->build();
 
-        $this->assertSame(200, $app->handle(new ServerRequest('HEAD', '/'))->getStatusCode());
+        // the response of GET, the server drops the content (rfc 9110 9.3.2) and sends the length of it (rfc 9110 8.6)
+        $response = $app->handle(new ServerRequest('HEAD', '/'));
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('handler', $this->body($response));
     }
 
     public function testMissingRoutingMiddleware(): void
@@ -314,6 +320,48 @@ final class ApplicationTest extends TestCase
         // e.g. laminas fromGlobals() passes an empty $_POST
         $emptyPost = $json->withParsedBody([]);
         $this->assertSame('{"a":1}', $this->body($app->handle($emptyPost)));
+    }
+
+    public function testRequestBodyLimits(): void
+    {
+        $middleware = new RequestBodyMiddleware();
+        $handler = new TestHandler($this->factory);
+        $form = new ServerRequest('PUT', '/', ['Content-Type' => 'application/x-www-form-urlencoded']);
+
+        // parse_str would drop input above the limits of php.ini, empty pairs don't count
+        $fields = array_map(static fn(int $i): string => "f$i=1", range(1, (int) ini_get('max_input_vars')));
+        $limit = $form->withBody($this->factory->createStream(implode('&&', $fields)));
+        $spy = new class implements RequestHandlerInterface {
+            public mixed $parsedBody = null;
+
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                $this->parsedBody = $request->getParsedBody();
+                return (new Psr17Factory())->createResponse();
+            }
+        };
+        $middleware->process($limit, $spy);
+        $this->assertCount(count($fields), (array) $spy->parsedBody);
+
+        $tooMany = $form->withBody($this->factory->createStream(implode('&', $fields) . '&x=1'));
+        $tooDeep = $form->withBody($this->factory->createStream('a' . str_repeat('[a]', (int) ini_get('max_input_nesting_level') + 1) . '=1'));
+
+        foreach ([$tooMany, $tooDeep] as $request) {
+            // the error handler of the application stays in place
+            $applicationHandler = static fn(): bool => false;
+            set_error_handler($applicationHandler);
+            try {
+                $middleware->process($request, $handler);
+                $this->fail('HttpBadRequestException expected');
+            } catch (HttpBadRequestException $exception) {
+                // the warning of php, e.g. shown in debug mode
+                $this->assertInstanceOf(ErrorException::class, $exception->getPrevious());
+            } finally {
+                $this->assertSame($applicationHandler, set_error_handler(null));
+                restore_error_handler();
+                restore_error_handler();
+            }
+        }
     }
 
     public function testRequestBodyKeepsOtherBodiesUnread(): void
@@ -625,6 +673,40 @@ final class ApplicationTest extends TestCase
         $this->assertSame('application/problem+json', $response->getHeaderLine('Content-Type'));
     }
 
+    public function testInvalidExceptionHeaders(): void
+    {
+        $logger = new class extends AbstractLogger {
+            /** @var list<string> */
+            public array $messages = [];
+
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->messages[] = "$level: $message";
+            }
+        };
+        $handler = new ErrorHandler($this->factory, logger: $logger);
+
+        // invalid headers of custom exceptions are left out, none of them is applied
+        $invalid = new class extends HttpException {
+            protected const STATUS_CODE = 401;
+
+            protected const REASON_PHRASE = 'Unauthorized';
+
+            public function getHeaders(): array
+            {
+                return ['X-Valid' => 'yes', 'WWW-Authenticate' => "Bearer\r\nX-Injected: 1"];
+            }
+        };
+        $response = $handler->handle(new ServerRequest('GET', '/'), $invalid);
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertFalse($response->hasHeader('X-Valid'));
+        $this->assertFalse($response->hasHeader('WWW-Authenticate'));
+        $this->assertSame('application/problem+json', $response->getHeaderLine('Content-Type'));
+        $this->assertSame('{"type":"about:blank","title":"Unauthorized","status":401}', $this->body($response));
+        // a bug of the application, it is logged
+        $this->assertSame(['error: Invalid headers of < ' . $invalid::class . ' >, the response is sent without them'], $logger->messages);
+    }
+
     public function testUrlGeneration(): void
     {
         $builder = (new ApplicationBuilder($this->factory, basePath: '/app'))
@@ -634,7 +716,8 @@ final class ApplicationTest extends TestCase
         $this->assertSame('/app/blog/42', $urls->path('article', ['id' => 42]));
         $this->assertSame('/app/blog/42?q=a%20b&tags%5B0%5D=x', $urls->path('article', ['id' => 42], ['q' => 'a b', 'tags' => ['x']]));
 
-        $base = new Uri('https://example.com:8443/old?x=1#fragment');
+        // user info and fragment are not taken over
+        $base = new Uri('https://user:secret@example.com:8443/old?x=1#fragment');
         $this->assertSame('https://example.com:8443/app/blog/42', $urls->url($base, 'article', ['id' => 42]));
         $this->assertSame('https://example.com:8443/app/blog/42?page=2', $urls->url($base, 'article', ['id' => 42], ['page' => 2]));
     }

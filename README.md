@@ -173,6 +173,7 @@ Implement the `ErrorHandlerInterface` for custom error responses.
 
 The `RequestBodyMiddleware` parses non-empty `application/json` (and `+json` types like `application/merge-patch+json`) and `application/x-www-form-urlencoded` bodies, unless the request already has a non-empty parsed body.
 Invalid JSON results in a `400` response, other content types (e.g. uploads) are left unread.
+Form bodies it parses result in a `400` above `max_input_vars` or `max_input_nesting_level`, instead of being truncated (e.g. PHP-FPM parses `POST` forms itself).
 The raw body stays readable, e.g. to verify webhook signatures.
 ```php
 $builder->add(new RequestBodyMiddleware());
@@ -197,6 +198,7 @@ Requests from other addresses keep `REMOTE_ADDR` as client ip, and their scheme 
 The scheme is the `X-Forwarded-Proto` entry of the client, if every proxy appends to both headers, otherwise the last entry, set by the nearest proxy.
 IPv4 clients of dual-stack sockets (e.g. `::ffff:10.0.0.1`) match IPv4 ranges, the client ip is always in canonical form.
 `Forwarded` (RFC 7239), `X-Forwarded-Host` and `X-Forwarded-Port` are not used, configure the proxy to keep the `Host` header.
+The port of the uri is taken from that header too, some request factories (e.g. `guzzlehttp/psr7`) set the port of the proxy connection otherwise (`SERVER_PORT`, e.g. `8080`).
 
 ## CORS
 
@@ -241,7 +243,7 @@ Packages like [middlewares/cors](https://github.com/middlewares/cors) work as we
 
 ```
 composer test   # phpunit
-composer check  # psalm + php-cs-fixer (PER-CS)
+composer check  # psalm + taint analysis + php-cs-fixer (PER-CS)
 composer fix    # apply the code style
 composer bench  # phpbench, build and dispatch times
 ```
