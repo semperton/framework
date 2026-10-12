@@ -178,6 +178,22 @@ $builder->add(new RequestBodyMiddleware());
 ```
 The body is read into memory. PHP-FPM limits its size with `post_max_size`, in workers limit it in the server instead (e.g. `request_body { max_size }` in Caddy / FrankenPHP, `http.max_request_size` in RoadRunner).
 
+## Reverse proxies
+
+Behind a reverse proxy, `REMOTE_ADDR` is the address of the proxy and the scheme is that of the proxy connection.
+The `ProxyMiddleware` uses the `X-Forwarded-For` and `X-Forwarded-Proto` headers, but only of the proxies you trust (ips or ranges).
+Add it right after the error middleware, so the other middleware see the client:
+```php
+use Semperton\Framework\Middleware\ProxyMiddleware;
+
+$builder->add(new ProxyMiddleware(['10.0.0.0/8', 'fd00::/8']));
+
+// in handlers and middleware
+$clientIp = $request->getAttribute(ProxyMiddleware::CLIENT_IP);
+```
+The client ip is the last address of `X-Forwarded-For` that was not added by a trusted proxy, earlier ones can be forged by the client.
+Requests from other addresses keep `REMOTE_ADDR` as client ip, and their scheme is taken from the `HTTPS` server param, so forged headers are ignored.
+
 ## CORS
 
 CORS is a security policy of your application, so there is no built in middleware.
@@ -247,3 +263,4 @@ Building takes about 3 µs per route, see `composer bench`.
 In long-running processes (FrankenPHP worker mode, RoadRunner, Workerman, Swoole ...), build the application once at boot and call `handle()` for every request.
 The builder is locked after `build()`.
 `HEAD` requests are routed to `GET` handlers and return their body. PHP-FPM drops it automatically, in workers the server adapter must not send it.
+[semperton/workerman](https://github.com/semperton/workerman) serves the application with Workerman.
