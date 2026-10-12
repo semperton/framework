@@ -11,13 +11,15 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 use function array_map;
-use function array_reverse;
+use function count;
 use function explode;
 use function filter_var;
 use function in_array;
+use function inet_ntop;
 use function inet_pton;
 use function intdiv;
 use function ord;
+use function str_starts_with;
 use function strlen;
 use function strtolower;
 use function substr;
@@ -29,10 +31,14 @@ use const FILTER_VALIDATE_IP;
 /**
  * Adds the client ip as request attribute and sets the scheme of the uri
  * X-Forwarded-For and X-Forwarded-Proto are only used if the request comes from a trusted proxy
+ * Forwarded (rfc 7239), X-Forwarded-Host and -Port are not used, proxies are expected to keep the Host header
  */
 final class ProxyMiddleware implements MiddlewareInterface
 {
     public const CLIENT_IP = 'client_ip';
+
+    /** prefix of ipv4-mapped ipv6 addresses, ::ffff:0:0/96 */
+    private const IPV4_MAPPED = "\0\0\0\0\0\0\0\0\0\0\xff\xff";
 
     /** @var list<array{string, int}> binary address and prefix length */
     private readonly array $proxies;
@@ -65,25 +71,39 @@ final class ProxyMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $server = $request->getServerParams();
-        $ip = (string) ($server['REMOTE_ADDR'] ?? '');
+        $remoteAddress = (string) ($server['REMOTE_ADDR'] ?? '');
+        $address = self::peer($remoteAddress);
         $https = !in_array($server['HTTPS'] ?? '', ['', 'off'], true);
 
-        if ($this->trusted($ip)) {
+        if ($address !== null && $this->trusted($address)) {
+            $forwardedFor = $this->list($request, 'X-Forwarded-For');
+            // the index of the client in X-Forwarded-For, the peer comes after the list
+            $hop = count($forwardedFor);
+
             // the client is the last address not added by a trusted proxy, invalid entries end the chain
-            foreach (array_reverse($this->list($request, 'X-Forwarded-For')) as $forwarded) {
-                if (self::address($forwarded) === null) {
+            while ($hop > 0) {
+                $forwarded = self::peer($forwardedFor[$hop - 1]);
+                if ($forwarded === null) {
                     break;
                 }
 
-                $ip = $forwarded;
+                $address = $forwarded;
+                $hop--;
 
                 if (!$this->trusted($forwarded)) {
                     break;
                 }
             }
 
-            $proto = $this->list($request, 'X-Forwarded-Proto');
-            $https = $proto === [] ? $https : strtolower($proto[0]) === 'https';
+            $forwardedProto = $this->list($request, 'X-Forwarded-Proto');
+            if ($forwardedProto !== []) {
+                // proxies appending to both headers keep them aligned, otherwise the last entry
+                // is the one of the nearest trusted proxy, earlier ones can be forged by the client
+                $proto = count($forwardedProto) === count($forwardedFor) && isset($forwardedProto[$hop])
+                    ? $forwardedProto[$hop]
+                    : $forwardedProto[count($forwardedProto) - 1];
+                $https = strtolower($proto) === 'https';
+            }
         }
 
         // also replaces a scheme from a forged header, e.g. set by nyholm/psr7-server
@@ -93,16 +113,17 @@ final class ProxyMiddleware implements MiddlewareInterface
             $request = $request->withUri($uri->withScheme($scheme), true);
         }
 
-        return $handler->handle($request->withAttribute(self::CLIENT_IP, $ip));
+        // in canonical form, e.g. '10.0.0.1' for '::ffff:10.0.0.1'
+        $clientIp = $address === null ? $remoteAddress : (string) inet_ntop($address);
+
+        return $handler->handle($request->withAttribute(self::CLIENT_IP, $clientIp));
     }
 
-    private function trusted(string $ip): bool
+    /**
+     * @param string $address binary form
+     */
+    private function trusted(string $address): bool
     {
-        $address = self::address($ip);
-        if ($address === null) {
-            return false;
-        }
-
         foreach ($this->proxies as [$proxy, $prefix]) {
             // ipv4 and ipv6 addresses never match
             if (strlen($proxy) !== strlen($address)) {
@@ -141,5 +162,17 @@ final class ProxyMiddleware implements MiddlewareInterface
     private static function address(string $ip): ?string
     {
         return filter_var($ip, FILTER_VALIDATE_IP) === false ? null : (string) inet_pton($ip);
+    }
+
+    /**
+     * Binary form of a received address, dual-stack sockets report ipv4 peers as ipv4-mapped ipv6, e.g. '::ffff:10.0.0.1'
+     */
+    private static function peer(string $ip): ?string
+    {
+        $address = self::address($ip);
+
+        return $address !== null && strlen($address) === 16 && str_starts_with($address, self::IPV4_MAPPED)
+            ? substr($address, 12)
+            : $address;
     }
 }

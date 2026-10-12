@@ -56,6 +56,40 @@ final class ProxyMiddlewareTest extends TestCase
         self::assertSame('10.0.0.1', $request->getAttribute(ProxyMiddleware::CLIENT_IP));
     }
 
+    public function testIpv4MappedAddresses(): void
+    {
+        // dual-stack sockets, e.g. workerman listening on [::]
+        $request = $this->process(['10.0.0.0/8'], '::ffff:10.0.0.1', 'http://localhost/', [
+            'X-Forwarded-For' => '::ffff:203.0.113.1, ::FFFF:10.0.0.2',
+            'X-Forwarded-Proto' => 'https',
+        ]);
+
+        self::assertSame('203.0.113.1', $request->getAttribute(ProxyMiddleware::CLIENT_IP));
+        self::assertSame('https', $request->getUri()->getScheme());
+    }
+
+    public function testCanonicalClientIp(): void
+    {
+        $request = $this->process([], '2001:DB8:0::1', 'http://localhost/', []);
+
+        self::assertSame('2001:db8::1', $request->getAttribute(ProxyMiddleware::CLIENT_IP));
+    }
+
+    #[TestWith(['203.0.113.1', 'https, http', 'http'])] // the client forged https, the proxy appended
+    #[TestWith(['198.51.100.1, 203.0.113.1', 'http, https', 'https'])] // aligned, the client is the second entry
+    #[TestWith(['198.51.100.1, 203.0.113.1, 10.0.0.2', 'http, https, http', 'https'])] // aligned, through two proxies
+    #[TestWith(['203.0.113.1, 10.0.0.2', 'https', 'https'])] // overwritten by the proxies
+    public function testForwardedProto(string $forwardedFor, string $forwardedProto, string $scheme): void
+    {
+        $request = $this->process(['10.0.0.0/8'], '10.0.0.1', 'http://localhost/', [
+            'X-Forwarded-For' => $forwardedFor,
+            'X-Forwarded-Proto' => $forwardedProto,
+        ]);
+
+        self::assertSame('203.0.113.1', $request->getAttribute(ProxyMiddleware::CLIENT_IP));
+        self::assertSame($scheme, $request->getUri()->getScheme());
+    }
+
     #[TestWith(['192.168.0.0/23', '192.168.1.255', true])]
     #[TestWith(['192.168.0.0/23', '192.168.2.1', false])]
     #[TestWith(['0.0.0.0/0', '203.0.113.1', true])]

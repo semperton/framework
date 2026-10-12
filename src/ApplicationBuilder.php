@@ -93,6 +93,8 @@ final class ApplicationBuilder implements RouteCollectorInterface
     public function addRoutingMiddleware(): static
     {
         $this->assertNotBuilt();
+        // before the flag is set, build() would leave out the routing otherwise
+        $this->assertNotInGroup();
 
         if ($this->routing) {
             throw new LogicException('The routing middleware is already added');

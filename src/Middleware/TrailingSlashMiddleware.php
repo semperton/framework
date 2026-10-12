@@ -43,10 +43,12 @@ final class TrailingSlashMiddleware implements MiddlewareInterface
         $query = $uri->getQuery();
         $method = $request->getMethod();
 
-        // 308 keeps the method and body of non-safe requests
-        $status = $method === 'GET' || $method === 'HEAD' ? 301 : 308;
+        // 308 keeps the method and body of non-safe requests, not every factory knows its reason phrase
+        [$status, $reasonPhrase] = $method === 'GET' || $method === 'HEAD'
+            ? [301, 'Moved Permanently']
+            : [308, 'Permanent Redirect'];
 
-        return $this->responseFactory->createResponse($status)
+        return $this->responseFactory->createResponse($status, $reasonPhrase)
             ->withHeader('Location', $query === '' ? $path : "$path?$query");
     }
 }

@@ -587,6 +587,23 @@ final class ApplicationTest extends TestCase
         }
     }
 
+    public function testRoutingMiddlewareInsideGroup(): void
+    {
+        $builder = $this->builder();
+
+        try {
+            $builder->group('/api', function (RouteCollectorInterface $api) {
+                /** @var ApplicationBuilder $api */
+                $api->addRoutingMiddleware();
+            });
+            $this->fail('Expected a LogicException');
+        } catch (LogicException) {
+            // the routing is still added by build()
+            $app = $builder->get('/', new TestHandler($this->factory))->build();
+            $this->assertSame('handler', $this->body($app->handle(new ServerRequest('GET', '/'))));
+        }
+    }
+
     public function testExceptionHeaders(): void
     {
         $request = new ServerRequest('GET', '/');
@@ -636,6 +653,7 @@ final class ApplicationTest extends TestCase
 
         $response = $app->handle(new ServerRequest('POST', '/users/'));
         $this->assertSame(308, $response->getStatusCode());
+        $this->assertSame('Permanent Redirect', $response->getReasonPhrase());
         $this->assertSame('/users', $response->getHeaderLine('Location'));
 
         $this->assertSame('index', $this->body($app->handle(new ServerRequest('GET', '/'))));
