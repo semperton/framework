@@ -1,0 +1,56 @@
+<?php
+
+// request data is untrusted, Psalm doesn't know PSR-7 by itself, used by psalm --taint-analysis
+
+namespace Psr\Http\Message;
+
+interface ServerRequestInterface extends RequestInterface
+{
+    /** @psalm-taint-source input */
+    public function getHeaders(): array;
+
+    /** @psalm-taint-source input */
+    public function getHeader(string $name): array;
+
+    /** @psalm-taint-source input */
+    public function getHeaderLine(string $name): string;
+
+    /** @psalm-taint-source input */
+    public function getRequestTarget(): string;
+
+    /** @psalm-taint-source input */
+    public function getServerParams(): array;
+
+    /** @psalm-taint-source input */
+    public function getCookieParams(): array;
+
+    /** @psalm-taint-source input */
+    public function getQueryParams(): array;
+
+    /**
+     * @psalm-taint-source input
+     * @return null|array|object
+     */
+    public function getParsedBody();
+}
+
+interface UriInterface
+{
+    /** @psalm-taint-source input */
+    public function getUserInfo(): string;
+
+    /** @psalm-taint-source input */
+    public function getHost(): string;
+
+    /** @psalm-taint-source input */
+    public function getPath(): string;
+
+    /** @psalm-taint-source input */
+    public function getQuery(): string;
+
+    /** @psalm-taint-source input */
+    public function getFragment(): string;
+
+    /** @psalm-taint-source input */
+    public function __toString(): string;
+}
