@@ -32,6 +32,7 @@ use Semperton\Framework\Middleware\RequestBodyMiddleware;
 use Semperton\Framework\Middleware\TrailingSlashMiddleware;
 use Semperton\Framework\RouteCollectorInterface;
 use Semperton\Framework\RouteResult;
+use Semperton\Framework\Tests\Fixtures\RawPathUri;
 use Semperton\Framework\Tests\Fixtures\TestHandler;
 use Semperton\Framework\Tests\Fixtures\TestMiddleware;
 use stdClass;
@@ -666,6 +667,14 @@ final class ApplicationTest extends TestCase
         // browsers read '/\' as '//', the uri keeps the backslash percent-encoded
         $uri = (new Uri('http://localhost'))->withPath('/\evil.com/');
         $this->assertSame('/%5Cevil.com', $app->handle(new ServerRequest('GET', $uri))->getHeaderLine('Location'));
+
+        // also with PSR-7 implementations that keep the backslash
+        $uri = new RawPathUri('http://localhost', '/\evil.com/');
+        $this->assertSame('/%5Cevil.com', $app->handle(new ServerRequest('GET', $uri))->getHeaderLine('Location'));
+
+        // no response splitting
+        $uri = new RawPathUri('http://localhost', "/a\r\nSet-Cookie: b/");
+        $this->assertSame('/a%0D%0ASet-Cookie:%20b', $app->handle(new ServerRequest('GET', $uri))->getHeaderLine('Location'));
     }
 
     public function testTrailingSlashWithBasePath(): void

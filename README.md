@@ -93,6 +93,7 @@ Behind a reverse proxy, pass a configured uri or correct the request uri with a 
 ### Trailing slashes
 
 Routes are matched exactly, `/users/` does not match `/users`. Add the `TrailingSlashMiddleware` before the routing to redirect to the path without trailing slash (`301`, or `308` to keep the method of non-`GET` requests).
+Leading slashes are collapsed and invalid characters percent-encoded, so the redirect never leaves the host (`//evil.com/`, `/\evil.com/`), with any PSR-7 implementation.
 Pass `redirect: false` to rewrite the request path instead, e.g. for API clients that don't follow redirects:
 ```php
 use Semperton\Framework\Middleware\TrailingSlashMiddleware;
